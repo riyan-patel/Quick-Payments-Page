@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { withLocalePath } from "@/lib/locale-path";
+import type { Locale } from "@/i18n/routing";
 import { z } from "zod";
 import { displayAmountMode } from "@/lib/amounts";
 import { formatBrandColorStorage } from "@/lib/brand-color-pair";
@@ -136,6 +138,9 @@ function validateAmounts(
 }
 
 export async function savePaymentPage(_prev: SavePageState, formData: FormData): Promise<SavePageState> {
+  const formLocale = (formData.get("locale") as string) || "en";
+  const locale: Locale = formLocale === "es" ? "es" : "en";
+
   const raw = {
     id: (formData.get("id") as string) || undefined,
     slug: normalizeSlugInput(formData.get("slug") as string),
@@ -287,7 +292,9 @@ export async function savePaymentPage(_prev: SavePageState, formData: FormData):
   revalidatePath(`/pay/${v.slug}`);
   revalidatePath(`/embed/${v.slug}`);
 
-  redirect(`/admin/pages/${pageId}/edit`);
+  return redirect(
+    withLocalePath(locale, `/admin/pages/${pageId}/edit` as `/${string}`),
+  );
 }
 
 export async function deletePaymentPage(pageId: string): Promise<{ error?: string }> {

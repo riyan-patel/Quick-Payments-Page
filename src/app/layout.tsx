@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import { Geist, Geist_Mono, Outfit } from "next/font/google";
 import "./globals.css";
 
@@ -17,11 +16,6 @@ const outfit = Outfit({
   subsets: ["latin"],
   display: "swap",
 });
-
-export const metadata: Metadata = {
-  title: "Quick Payment Pages",
-  description: "Configurable hosted payment pages for providers and payers.",
-};
 
 export default function RootLayout({
   children,

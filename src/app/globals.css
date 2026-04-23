@@ -94,14 +94,17 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+  color-scheme: dark;
+  /* Warm-leaning dark (not pure grey) for consistency with the app */
+  --background: oklch(0.14 0.015 260);
+  --foreground: oklch(0.97 0.01 100);
+  --card: oklch(0.2 0.018 260);
+  --card-foreground: oklch(0.98 0.008 100);
+  --popover: oklch(0.22 0.018 260);
+  --popover-foreground: oklch(0.98 0.008 100);
+  /* Teal CTA in dark: readable on card surfaces */
+  --primary: oklch(0.72 0.11 185);
+  --primary-foreground: oklch(0.12 0.02 260);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
@@ -150,6 +153,37 @@
   --font-heading: var(--font-outfit), var(--font-geist-sans), system-ui, sans-serif;
 }
 
+/* In dark mode, pay must not keep paper-white tokens (was overriding global .dark) */
+.dark [data-qpp="pay"] {
+  --background: oklch(0.15 0.02 85);
+  --foreground: oklch(0.96 0.012 90);
+  --card: oklch(0.2 0.02 90);
+  --card-foreground: oklch(0.97 0.01 90);
+  --popover: oklch(0.22 0.02 90);
+  --muted: oklch(0.3 0.02 90);
+  --muted-foreground: oklch(0.7 0.02 90);
+  --border: oklch(0.32 0.02 90);
+  --input: oklch(0.28 0.02 90);
+  --secondary: oklch(0.26 0.02 90);
+  --qpp-ink: oklch(0.96 0.01 90);
+  --qpp-gold: oklch(0.75 0.12 95);
+  --qpp-coral: oklch(0.64 0.14 25);
+  --qpp-ambient-1: oklch(0.32 0.08 200);
+  --qpp-ambient-2: oklch(0.3 0.1 250);
+  --qpp-ambient-3: oklch(0.28 0.09 30);
+  --qpp-glass: oklch(0.2 0.018 90 / 0.88);
+}
+
+/* Elevation for pay glass cards (replaces inline `boxShadow` on `brandGlassPanelBorder`) */
+[data-qpp="pay"] .pay-glass-surface {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.75) inset, 0 2px 0 rgba(0, 0, 0, 0.02) inset,
+    0 24px 64px -28px rgba(0, 0, 0, 0.12);
+}
+.dark [data-qpp="pay"] .pay-glass-surface {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 2px 0 rgba(0, 0, 0, 0.4) inset,
+    0 24px 64px -28px rgba(0, 0, 0, 0.5);
+}
+
 [data-qpp="pay"] h1,
 [data-qpp="pay"] h2,
 [data-qpp="pay"] .pay-font-display {
@@ -160,7 +194,9 @@
 
 /* Admin + shared app chrome: soft elevated cards, generous radius */
 [data-app="admin"] [data-slot="card"] {
-  @apply overflow-hidden rounded-2xl border-foreground/8 shadow-[0_1px_0_rgba(255,255,255,0.7)_inset,0_8px_30px_-8px_rgba(0,0,0,0.08),0_2px_8px_-4px_rgba(0,0,0,0.04)];
+  @apply overflow-hidden rounded-2xl border-foreground/8;
+  @apply shadow-[0_1px_0_rgba(255,255,255,0.7)_inset,0_8px_30px_-8px_rgba(0,0,0,0.08),0_2px_8px_-4px_rgba(0,0,0,0.04)];
+  @apply dark:shadow-[0_1px_0_rgba(255,255,255,0.05)_inset,0_8px_32px_-8px_rgba(0,0,0,0.55),0_2px_8px_-4px_rgba(0,0,0,0.35)] dark:border-foreground/12;
 }
 [data-app="admin"] h1,
 [data-app="admin"] h2,
@@ -171,7 +207,9 @@
 }
 
 [data-app="auth"] [data-slot="card"] {
-  @apply overflow-hidden rounded-2xl border-foreground/8 shadow-[0_1px_0_rgba(255,255,255,0.75)_inset,0_20px_50px_-20px_rgba(0,0,0,0.12),0_8px_16px_-8px_rgba(0,0,0,0.06)];
+  @apply overflow-hidden rounded-2xl border-foreground/8;
+  @apply shadow-[0_1px_0_rgba(255,255,255,0.75)_inset,0_20px_50px_-20px_rgba(0,0,0,0.12),0_8px_16px_-8px_rgba(0,0,0,0.06)];
+  @apply dark:shadow-[0_1px_0_rgba(255,255,255,0.05)_inset,0_20px_50px_-20px_rgba(0,0,0,0.5),0_8px_16px_-8px_rgba(0,0,0,0.35)] dark:border-foreground/12;
 }
 [data-app="auth"] h1,
 [data-app="auth"] h2 {

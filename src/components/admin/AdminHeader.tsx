@@ -1,16 +1,18 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { BarChart3, FileStack, LayoutDashboard, LogOut } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { Link, usePathname } from "@/i18n/navigation";
 import { logout } from "@/app/admin/logout-action";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { LocaleSwitcher } from "@/components/i18n/LocaleSwitcher";
+import { ThemeModeToggle } from "@/components/theme/ThemeModeToggle";
 import { cn } from "@/lib/utils";
 
 const nav = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { href: "/admin/pages", label: "Pages", icon: FileStack, end: false },
-  { href: "/admin/reports", label: "Reports", icon: BarChart3, end: false },
+  { href: "/admin", key: "dashboard" as const, icon: LayoutDashboard, end: true },
+  { href: "/admin/pages", key: "pages" as const, icon: FileStack, end: false },
+  { href: "/admin/reports", key: "reports" as const, icon: BarChart3, end: false },
 ] as const;
 
 function isActive(pathname: string, href: string, end: boolean) {
@@ -19,6 +21,7 @@ function isActive(pathname: string, href: string, end: boolean) {
 }
 
 export function AdminHeader() {
+  const t = useTranslations("adminNav");
   const pathname = usePathname() ?? "";
 
   return (
@@ -32,12 +35,14 @@ export function AdminHeader() {
             <LayoutDashboard className="size-4" strokeWidth={1.75} aria-hidden />
           </span>
           <span className="font-[family-name:var(--font-outfit)] text-lg font-semibold tracking-tight text-foreground">
-            QPP Admin
+            {t("brand")}
           </span>
         </Link>
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <ThemeModeToggle />
+          <LocaleSwitcher />
           <nav aria-label="Admin" className="flex flex-wrap items-center gap-1">
-            {nav.map(({ href, label, icon: Icon, end }) => {
+            {nav.map(({ href, key, icon: Icon, end }) => {
               const on = isActive(pathname, href, end);
               return (
                 <Link
@@ -51,7 +56,7 @@ export function AdminHeader() {
                   )}
                 >
                   <Icon className="size-3.5 opacity-80" strokeWidth={1.75} aria-hidden />
-                  {label}
+                  {t(key)}
                 </Link>
               );
             })}
@@ -64,7 +69,7 @@ export function AdminHeader() {
               className="gap-1.5 rounded-full border-foreground/12 bg-background/60 px-3.5 text-muted-foreground hover:text-foreground"
             >
               <LogOut className="size-3.5" strokeWidth={1.75} aria-hidden />
-              Sign out
+              {t("signOut")}
             </Button>
           </form>
         </div>

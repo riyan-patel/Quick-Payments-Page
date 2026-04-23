@@ -1,6 +1,51 @@
 import type { CustomFieldRow } from "@/types/qpp";
 import { parseOptions } from "@/types/qpp";
 
+type CustomFieldT = (key: string, values?: Record<string, string>) => string;
+
+/**
+ * @param t — typically `useTranslations("pay")` with keys under `errors.*`
+ */
+export function getCustomFieldValidationError(
+  fields: CustomFieldRow[],
+  values: Record<string, string>,
+  t: CustomFieldT,
+): string | null {
+  for (const f of fields) {
+    const raw = values[f.id] ?? "";
+    const v = raw.trim();
+    const label = f.label;
+
+    if (f.required && !v) {
+      return t("errors.fieldRequired", { label });
+    }
+    if (!v) continue;
+
+    switch (f.field_type) {
+      case "number": {
+        if (!Number.isFinite(Number(v))) return t("errors.fieldNumber", { label });
+        break;
+      }
+      case "date": {
+        if (Number.isNaN(Date.parse(v))) return t("errors.fieldDate", { label });
+        break;
+      }
+      case "dropdown": {
+        const opts = parseOptions(f.options);
+        if (!opts.includes(v)) return t("errors.fieldDropdown", { label });
+        break;
+      }
+      case "checkbox": {
+        if (v !== "true" && v !== "false") return t("errors.fieldCheckbox", { label });
+        break;
+      }
+      default:
+        break;
+    }
+  }
+  return null;
+}
+
 export function validateCustomFieldResponses(
   fields: CustomFieldRow[],
   values: Record<string, string>,

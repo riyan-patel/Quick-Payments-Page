@@ -1,8 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { getLocaleFromPathname, getPathnameWithoutLocale, withLocalePath } from "@/lib/locale-path";
 
-export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
+type Locale = "en" | "es";
+
+export async function updateSession(
+  request: NextRequest,
+  initialResponse: NextResponse,
+): Promise<NextResponse> {
+  let supabaseResponse = initialResponse;
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,13 +19,11 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value),
-          );
-          supabaseResponse = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options),
-          );
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          supabaseResponse = initialResponse;
+          cookiesToSet.forEach(({ name, value, options }) => {
+            supabaseResponse.cookies.set(name, value, options);
+          });
         },
       },
     },
@@ -29,15 +33,19 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (request.nextUrl.pathname.startsWith("/admin") && !user) {
+  const pathname = request.nextUrl.pathname;
+  const path = getPathnameWithoutLocale(pathname);
+  const loc = getLocaleFromPathname(pathname) as Locale;
+
+  if (path.startsWith("/admin") && !user) {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("next", request.nextUrl.pathname);
+    url.pathname = withLocalePath(loc, "/login");
+    url.searchParams.set("next", pathname + (request.nextUrl.search || ""));
     return NextResponse.redirect(url);
   }
 
-  if ((request.nextUrl.pathname === "/login" || request.nextUrl.pathname === "/signup") && user) {
-    return NextResponse.redirect(new URL("/admin", request.url));
+  if ((path === "/login" || path === "/signup") && user) {
+    return NextResponse.redirect(new URL(withLocalePath(loc, "/admin"), request.url));
   }
 
   return supabaseResponse;

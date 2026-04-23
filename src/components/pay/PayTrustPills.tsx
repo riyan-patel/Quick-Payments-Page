@@ -12,9 +12,14 @@ export function PayTrustPills() {
       {items.map(({ icon: Icon, label }) => (
         <div
           key={label}
-          className="inline-flex items-center gap-1.5 rounded-full border border-foreground/8 bg-foreground/[0.04] px-3 py-1.5 text-[0.7rem] font-medium tracking-wide text-muted-foreground shadow-[0_1px_0_rgba(255,255,255,0.6)] backdrop-blur-sm"
+          className="inline-flex items-center gap-1.5 rounded-full border border-foreground/8 bg-foreground/[0.04] px-3 py-1.5 text-[0.7rem] font-medium tracking-wide text-muted-foreground shadow-[0_1px_0_rgba(255,255,255,0.6)] backdrop-blur-sm dark:border-foreground/12 dark:bg-foreground/[0.07] dark:shadow-[0_1px_0_rgba(255,255,255,0.06)]"
         >
-          <Icon className="size-3.5 text-foreground/70" strokeWidth={1.75} aria-hidden />
+          <Icon
+            className="size-3.5"
+            style={{ color: "var(--qpp-pri, var(--primary))" }}
+            strokeWidth={1.75}
+            aria-hidden
+          />
           <span>{label}</span>
         </div>
       ))}

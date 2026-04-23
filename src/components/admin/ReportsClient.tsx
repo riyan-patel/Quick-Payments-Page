@@ -1,6 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
+import { BarChart3, DollarSign, Download, Filter, PiggyBank, RefreshCw, TrendingUp } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { PaymentPageRow, TransactionRow } from "@/types/qpp";
@@ -110,6 +111,7 @@ export function ReportsClient({
       "amount",
       "currency",
       "payment_method",
+      "payer_name",
       "payer_email",
       "page",
       "gl_codes",
@@ -122,6 +124,7 @@ export function ReportsClient({
         r.amount,
         r.currency,
         r.payment_method_type ?? "",
+        r.payer_name ?? "",
         r.payer_email ?? "",
         r.payment_pages?.title ?? "",
         (r.gl_codes_snapshot ?? []).join(";"),
@@ -148,8 +151,18 @@ export function ReportsClient({
   return (
     <div className="space-y-8">
       <Card>
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
+        <CardHeader className="pb-2">
+          <div className="flex items-center gap-2">
+            <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Filter className="size-4" strokeWidth={1.5} aria-hidden />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Filters</CardTitle>
+              <CardDescription className="text-sm">
+                Narrow by date, page, and status — then apply.
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-4">
@@ -211,11 +224,23 @@ export function ReportsClient({
                 <option value="failed">Failed</option>
               </select>
             </div>
-            <div className="flex items-end gap-2">
-              <Button type="button" onClick={() => void load()}>
+            <div className="flex flex-wrap items-end gap-2">
+              <Button
+                type="button"
+                className="gap-1.5 rounded-full"
+                onClick={() => void load()}
+                disabled={loading}
+              >
+                <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} aria-hidden />
                 Apply
               </Button>
-              <Button type="button" variant="outline" onClick={exportCsv}>
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-1.5 rounded-full border-foreground/12"
+                onClick={exportCsv}
+              >
+                <Download className="size-3.5" aria-hidden />
                 Export CSV
               </Button>
             </div>
@@ -235,15 +260,25 @@ export function ReportsClient({
 
       <section className="grid gap-4 sm:grid-cols-3">
         <Card>
-          <CardHeader>
-            <CardDescription>Successful payments</CardDescription>
-            <CardTitle className="text-2xl tabular-nums">{summary.count}</CardTitle>
+          <CardHeader className="pb-2">
+            <div className="mb-1 flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <TrendingUp className="size-4" strokeWidth={1.5} aria-hidden />
+            </div>
+            <CardDescription className="text-xs font-medium uppercase tracking-wider">
+              Successful payments
+            </CardDescription>
+            <CardTitle className="text-3xl tabular-nums tracking-tight">{summary.count}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
-          <CardHeader>
-            <CardDescription>Total collected</CardDescription>
-            <CardTitle className="text-2xl tabular-nums">
+          <CardHeader className="pb-2">
+            <div className="mb-1 flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <PiggyBank className="size-4" strokeWidth={1.5} aria-hidden />
+            </div>
+            <CardDescription className="text-xs font-medium uppercase tracking-wider">
+              Total collected
+            </CardDescription>
+            <CardTitle className="text-3xl tabular-nums tracking-tight">
               {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
                 summary.total,
               )}
@@ -251,9 +286,14 @@ export function ReportsClient({
           </CardHeader>
         </Card>
         <Card>
-          <CardHeader>
-            <CardDescription>Average payment</CardDescription>
-            <CardTitle className="text-2xl tabular-nums">
+          <CardHeader className="pb-2">
+            <div className="mb-1 flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <DollarSign className="size-4" strokeWidth={1.5} aria-hidden />
+            </div>
+            <CardDescription className="text-xs font-medium uppercase tracking-wider">
+              Average payment
+            </CardDescription>
+            <CardTitle className="text-3xl tabular-nums tracking-tight">
               {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
                 summary.avg,
               )}
@@ -265,7 +305,10 @@ export function ReportsClient({
       <section className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">By GL code</CardTitle>
+            <div className="flex items-center gap-2">
+              <BarChart3 className="size-4 text-primary" strokeWidth={1.5} aria-hidden />
+              <CardTitle className="text-base">By GL code</CardTitle>
+            </div>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2 text-sm">
@@ -292,7 +335,10 @@ export function ReportsClient({
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">By payment method</CardTitle>
+            <div className="flex items-center gap-2">
+              <BarChart3 className="size-4 text-primary" strokeWidth={1.5} aria-hidden />
+              <CardTitle className="text-base">By payment method</CardTitle>
+            </div>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2 text-sm">
@@ -321,21 +367,27 @@ export function ReportsClient({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Transactions</CardTitle>
+          <CardTitle className="text-lg">Transactions</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
             <p className="text-sm text-muted-foreground">Loading…</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+            <div className="overflow-x-auto rounded-xl border border-foreground/6 bg-muted/20">
+              <table className="w-full min-w-[1000px] border-collapse text-left text-sm">
                 <thead>
-                  <tr className="border-b border-border text-xs uppercase text-muted-foreground">
+                  <tr className="border-b border-border/80 bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground">
                     <th scope="col" className="py-2 pr-2">
                       Date
                     </th>
                     <th scope="col" className="py-2 pr-2">
                       Page
+                    </th>
+                    <th scope="col" className="py-2 pr-2">
+                      Payer
+                    </th>
+                    <th scope="col" className="py-2 pr-2">
+                      Email
                     </th>
                     <th scope="col" className="py-2 pr-2">
                       Status
@@ -346,12 +398,15 @@ export function ReportsClient({
                     <th scope="col" className="py-2 pr-2 text-right">
                       Amount
                     </th>
+                    <th scope="col" className="min-w-[8rem] py-2 pr-2">
+                      Transaction ID
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-6 text-center text-muted-foreground">
+                      <td colSpan={8} className="py-6 text-center text-muted-foreground">
                         No rows match your filters. Adjust filters and click Apply.
                       </td>
                     </tr>
@@ -362,6 +417,21 @@ export function ReportsClient({
                           {format(new Date(r.created_at), "PP p")}
                         </td>
                         <td className="py-2 pr-2">{r.payment_pages?.title ?? "—"}</td>
+                        <td className="max-w-[12rem] py-2 pr-2 truncate" title={r.payer_name ?? ""}>
+                          {r.payer_name?.trim() ? r.payer_name : "—"}
+                        </td>
+                        <td className="max-w-[14rem] py-2 pr-2 text-muted-foreground">
+                          {r.payer_email ? (
+                            <a
+                              className="truncate text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-primary"
+                              href={`mailto:${r.payer_email}`}
+                            >
+                              {r.payer_email}
+                            </a>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
                         <td className="py-2 pr-2">
                           <Badge
                             variant="outline"
@@ -383,6 +453,11 @@ export function ReportsClient({
                             style: "currency",
                             currency: "USD",
                           }).format(Number(r.amount))}
+                        </td>
+                        <td className="max-w-[10rem] py-2 pr-2 font-mono text-xs text-muted-foreground">
+                          <span className="line-clamp-2 break-all" title={r.id}>
+                            {r.id}
+                          </span>
                         </td>
                       </tr>
                     ))

@@ -1,46 +1,46 @@
-@import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
+/* Project-relative imports — avoids wrong resolution when a parent folder has package.json */
+@import "../../node_modules/tailwindcss/index.css";
+@import "../../node_modules/tw-animate-css/dist/tw-animate.css";
+@import "../../node_modules/shadcn/dist/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* App UIs are light (admin cards, pay pages). Avoid flipping body text in OS dark mode —
-     that made form text white-on-white inside white inputs. */
+  /* App UIs: warm cream canvas, deep teal primary (marketing + admin), orange accents in type */
   color-scheme: light;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  /* Brand teal (~ #0f766e) */
-  --primary: oklch(0.455 0.089 189);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --background: oklch(0.98 0.02 95);
+  --foreground: oklch(0.2 0.02 270);
+  --card: oklch(0.997 0.008 95);
+  --card-foreground: oklch(0.2 0.02 270);
+  --popover: oklch(0.997 0.008 95);
+  --popover-foreground: oklch(0.2 0.02 270);
+  /* Deep forest teal */
+  --primary: oklch(0.38 0.09 185);
+  --primary-foreground: oklch(0.99 0.01 100);
+  --secondary: oklch(0.95 0.02 95);
+  --secondary-foreground: oklch(0.25 0.02 270);
+  --muted: oklch(0.95 0.02 90);
+  --muted-foreground: oklch(0.48 0.02 270);
+  --accent: oklch(0.95 0.04 45);
+  --accent-foreground: oklch(0.25 0.02 270);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.455 0.089 189);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
+  --border: oklch(0.9 0.02 90);
+  --input: oklch(0.92 0.015 90);
+  --ring: oklch(0.4 0.09 185);
+  --chart-1: oklch(0.87 0.08 95);
+  --chart-2: oklch(0.5 0.09 185);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.455 0.089 189);
+  --radius: 0.75rem;
+  --sidebar: oklch(0.985 0.015 95);
+  --sidebar-foreground: oklch(0.2 0.02 270);
+  --sidebar-primary: oklch(0.38 0.09 185);
   --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-accent: oklch(0.95 0.02 95);
+  --sidebar-accent-foreground: oklch(0.25 0.02 270);
+  --sidebar-border: oklch(0.9 0.02 90);
+  --sidebar-ring: oklch(0.4 0.09 185);
 }
 
 @theme inline {
@@ -89,7 +89,7 @@
 }
 
 :focus-visible {
-  outline: 2px solid #0f766e;
+  outline: 2px solid oklch(0.4 0.09 185);
   outline-offset: 2px;
 }
 
@@ -125,6 +125,58 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+}
+
+/* Public pay: warm fintech / soft-UI (Be.run / “Pay” / glass dashboards) */
+[data-qpp="pay"] {
+  --background: oklch(0.96 0.018 85);
+  --foreground: oklch(0.19 0.02 270);
+  --card: oklch(0.998 0.004 90);
+  --card-foreground: oklch(0.19 0.02 270);
+  --popover: oklch(0.998 0.004 90);
+  --muted: oklch(0.94 0.02 85);
+  --muted-foreground: oklch(0.44 0.03 270);
+  --border: oklch(0.88 0.02 85);
+  --input: oklch(0.91 0.015 85);
+  --secondary: oklch(0.95 0.02 85);
+  --radius: 1.25rem;
+  --qpp-ink: oklch(0.17 0.02 270);
+  --qpp-gold: oklch(0.9 0.17 95);
+  --qpp-coral: oklch(0.72 0.16 25);
+  --qpp-ambient-1: oklch(0.86 0.11 95);
+  --qpp-ambient-2: oklch(0.82 0.08 240);
+  --qpp-ambient-3: oklch(0.9 0.05 30);
+  --qpp-glass: oklch(0.99 0.005 90 / 0.72);
+  --font-heading: var(--font-outfit), var(--font-geist-sans), system-ui, sans-serif;
+}
+
+[data-qpp="pay"] h1,
+[data-qpp="pay"] h2,
+[data-qpp="pay"] .pay-font-display {
+  font-family: var(--font-outfit), var(--font-geist-sans), system-ui, sans-serif;
+  font-feature-settings: "ss01" on, "cv01" on;
+  letter-spacing: -0.02em;
+}
+
+/* Admin + shared app chrome: soft elevated cards, generous radius */
+[data-app="admin"] [data-slot="card"] {
+  @apply overflow-hidden rounded-2xl border-foreground/8 shadow-[0_1px_0_rgba(255,255,255,0.7)_inset,0_8px_30px_-8px_rgba(0,0,0,0.08),0_2px_8px_-4px_rgba(0,0,0,0.04)];
+}
+[data-app="admin"] h1,
+[data-app="admin"] h2,
+[data-app="admin"] h3,
+[data-app="admin"] .app-heading {
+  font-family: var(--font-outfit), var(--font-geist-sans), system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+[data-app="auth"] [data-slot="card"] {
+  @apply overflow-hidden rounded-2xl border-foreground/8 shadow-[0_1px_0_rgba(255,255,255,0.75)_inset,0_20px_50px_-20px_rgba(0,0,0,0.12),0_8px_16px_-8px_rgba(0,0,0,0.06)];
+}
+[data-app="auth"] h1,
+[data-app="auth"] h2 {
+  font-family: var(--font-outfit), var(--font-geist-sans), system-ui, sans-serif;
+  letter-spacing: -0.02em;
 }
 
 @layer base {

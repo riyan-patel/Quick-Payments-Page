@@ -2,9 +2,10 @@
 
 import QRCode from "react-qr-code";
 import { useCallback, useState } from "react";
+import { Copy, QrCode, Share2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -65,7 +66,17 @@ function DistributionPanelContent({ slug, title, appUrl }: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Distribution</CardTitle>
+        <div className="flex items-start gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Share2 className="size-5" strokeWidth={1.5} aria-hidden />
+          </div>
+          <div>
+            <CardTitle className="text-lg">Distribution</CardTitle>
+            <CardDescription>
+              Share the hosted link, drop in an embed, or print a QR that opens checkout.
+            </CardDescription>
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-2">
@@ -75,9 +86,14 @@ function DistributionPanelContent({ slug, title, appUrl }: Props) {
               id={`pay-url-${slug}`}
               readOnly
               value={payUrl}
-              className="min-w-[12rem] flex-1 font-mono text-sm"
+              className="min-w-[12rem] flex-1 rounded-xl font-mono text-sm"
             />
-            <Button type="button" onClick={() => void copy("url", payUrl)}>
+            <Button
+              type="button"
+              className="gap-1.5 rounded-full"
+              onClick={() => void copy("url", payUrl)}
+            >
+              <Copy className="size-3.5" aria-hidden />
               Copy URL
             </Button>
           </div>
@@ -95,9 +111,15 @@ function DistributionPanelContent({ slug, title, appUrl }: Props) {
             readOnly
             rows={5}
             value={iframeSnippet}
-            className="font-mono text-xs"
+            className="rounded-xl font-mono text-xs"
           />
-          <Button type="button" variant="outline" onClick={() => void copy("iframe", iframeSnippet)}>
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-1.5 rounded-full border-foreground/12"
+            onClick={() => void copy("iframe", iframeSnippet)}
+          >
+            <Copy className="size-3.5" aria-hidden />
             Copy iframe HTML
           </Button>
           {copied === "iframe" ? (
@@ -108,15 +130,23 @@ function DistributionPanelContent({ slug, title, appUrl }: Props) {
         </div>
 
         <div className="space-y-2">
-          <h3 className="text-sm font-medium">QR code (links to public URL)</h3>
+          <h3 className="flex items-center gap-1.5 text-sm font-medium">
+            <QrCode className="size-4 text-primary" strokeWidth={1.5} aria-hidden />
+            QR code (links to public URL)
+          </h3>
           <div
             id={`qr-${slug}`}
-            className="inline-block rounded-lg border border-border bg-background p-3"
+            className="inline-block rounded-2xl border border-foreground/8 bg-card p-4 shadow-sm"
           >
             <QRCode value={payUrl} size={160} title={`QR code for ${title}`} />
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" onClick={downloadSvg}>
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-full border-foreground/12"
+              onClick={downloadSvg}
+            >
               Download SVG
             </Button>
           </div>

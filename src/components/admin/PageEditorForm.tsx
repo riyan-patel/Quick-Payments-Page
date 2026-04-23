@@ -4,6 +4,7 @@ import { useActionState, useMemo, useState } from "react";
 import type { SavePageState } from "@/app/admin/actions";
 import { savePaymentPage } from "@/app/admin/actions";
 import type { AmountMode, CustomFieldRow, FieldType, PaymentPageRow } from "@/types/qpp";
+import { parseBrandColorStorage } from "@/lib/brand-color-pair";
 import { parseOptions } from "@/types/qpp";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -35,9 +36,19 @@ const VARIABLES = [
 
 const inputSm = "h-7 min-h-7 py-1 text-[0.8rem]";
 
+/** Main editor fields — rounded, soft shadow (nested field rows still use `inputSm`). */
+const formField = cn(
+  "h-10 min-h-10 rounded-xl border-foreground/10 bg-card text-sm shadow-sm",
+  "transition-shadow focus-visible:ring-2 focus-visible:ring-primary/20",
+);
+const formTextarea = cn(
+  "min-h-24 rounded-xl border-foreground/10 bg-card py-2.5 text-sm leading-relaxed shadow-sm",
+  "transition-shadow focus-visible:ring-2 focus-visible:ring-primary/20",
+);
+
 const selectSm = cn(
   inputSm,
-  "w-full rounded-lg border border-input bg-background px-2 shadow-none outline-none",
+  "w-full rounded-xl border border-input bg-background px-2 shadow-none outline-none",
   "focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50",
 );
 
@@ -58,7 +69,12 @@ export function PageEditorForm({
     initialPage?.amount_mode ?? "fixed",
   );
 
-  const [brandColor, setBrandColor] = useState(initialPage?.brand_color ?? "#0f766e");
+  const initialPalette = parseBrandColorStorage(
+    initialPage?.brand_color,
+    initialPage?.brand_color_secondary,
+  );
+  const [brandColor, setBrandColor] = useState(initialPalette.primary);
+  const [brandColorSecondary, setBrandColorSecondary] = useState(initialPalette.secondary);
 
   const [fields, setFields] = useState<DraftField[]>(() => {
     if (initialFields?.length) {
@@ -134,10 +150,11 @@ export function PageEditorForm({
   };
 
   return (
-    <form action={formAction} className="mx-auto max-w-3xl space-y-8 pb-20">
+    <form id="qpp-page-editor" action={formAction} className="mx-auto max-w-3xl space-y-8 pb-20">
       {initialPage?.id ? <input type="hidden" name="id" value={initialPage.id} /> : null}
       <input type="hidden" name="fields_json" value={fieldsJson} />
       <input type="hidden" name="brand_color" value={brandColor} />
+      <input type="hidden" name="brand_color_secondary" value={brandColorSecondary} />
 
       {state?.error ? (
         <Alert variant="destructive">
@@ -163,6 +180,7 @@ export function PageEditorForm({
               title="Lowercase letters, numbers, and hyphens only — e.g. yoga-class. Do not paste https:// or /pay/."
               placeholder="yoga-class"
               aria-describedby="slug-help"
+              className={formField}
             />
             <p id="slug-help" className="text-xs text-muted-foreground">
               Enter <strong className="font-medium text-foreground">only the slug</strong> (e.g.{" "}
@@ -173,11 +191,23 @@ export function PageEditorForm({
           </div>
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="title">Title</Label>
-            <Input id="title" name="title" required defaultValue={initialPage?.title} />
+            <Input
+              id="title"
+              name="title"
+              required
+              defaultValue={initialPage?.title}
+              className={formField}
+            />
           </div>
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="subtitle">Subtitle / description</Label>
-            <Textarea id="subtitle" name="subtitle" rows={2} defaultValue={initialPage?.subtitle ?? ""} />
+            <Textarea
+              id="subtitle"
+              name="subtitle"
+              rows={2}
+              defaultValue={initialPage?.subtitle ?? ""}
+              className={formTextarea}
+            />
           </div>
         </CardContent>
       </Card>
@@ -197,18 +227,19 @@ export function PageEditorForm({
                 inputMode="url"
                 defaultValue={initialPage?.logo_url ?? ""}
                 placeholder="https://…"
+                className={formField}
               />
             </div>
             <div className="space-y-2">
               <span id="brand-color-label" className="text-sm font-medium">
-                Primary brand color
+                Primary color
               </span>
               <div className="flex flex-wrap items-center gap-3">
                 <input
                   type="color"
                   value={brandColor}
                   onChange={(e) => setBrandColor(e.target.value)}
-                  className="h-10 w-14 cursor-pointer rounded-md border border-input bg-background"
+                  className="h-10 w-14 cursor-pointer overflow-hidden rounded-xl border border-foreground/10 bg-card shadow-sm"
                   aria-labelledby="brand-color-label"
                 />
                 <span className="font-mono text-sm text-muted-foreground" aria-live="polite">
@@ -216,10 +247,28 @@ export function PageEditorForm({
                 </span>
               </div>
             </div>
+            <div className="space-y-2">
+              <span id="brand-color-secondary-label" className="text-sm font-medium">
+                Secondary (accent) color
+              </span>
+              <div className="flex flex-wrap items-center gap-3">
+                <input
+                  type="color"
+                  value={brandColorSecondary}
+                  onChange={(e) => setBrandColorSecondary(e.target.value)}
+                  className="h-10 w-14 cursor-pointer overflow-hidden rounded-xl border border-foreground/10 bg-card shadow-sm"
+                  aria-labelledby="brand-color-secondary-label"
+                />
+                <span className="font-mono text-sm text-muted-foreground" aria-live="polite">
+                  {brandColorSecondary}
+                </span>
+              </div>
+            </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            Submitted as <code className="rounded bg-muted px-1">#rrggbb</code> for buttons and Stripe
-            appearance.
+            Both are saved together in the <code className="rounded bg-muted px-1">brand_color</code> field
+            as <code className="rounded bg-muted px-1">#primary|#secondary</code>. The public pay page uses
+            them for gradients, highlights, and buttons; primary also sets the Stripe form accent.
           </p>
           <div className="space-y-2">
             <Label htmlFor="header_message">Header message</Label>
@@ -228,15 +277,7 @@ export function PageEditorForm({
               name="header_message"
               rows={2}
               defaultValue={initialPage?.header_message ?? ""}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="footer_message">Footer message</Label>
-            <Textarea
-              id="footer_message"
-              name="footer_message"
-              rows={2}
-              defaultValue={initialPage?.footer_message ?? ""}
+              className={formTextarea}
             />
           </div>
           <div className="space-y-2">
@@ -247,6 +288,7 @@ export function PageEditorForm({
               rows={4}
               defaultValue={initialPage?.trust_panel ?? ""}
               placeholder="Explain fees, refund policy, or how payers’ data is used. Shown in a highlighted panel on the public page."
+              className={formTextarea}
             />
           </div>
         </CardContent>
@@ -285,7 +327,7 @@ export function PageEditorForm({
                 step="0.01"
                 min="0.01"
                 defaultValue={initialPage?.fixed_amount ?? ""}
-                className="max-w-xs"
+                className={cn(formField, "max-w-xs")}
               />
             </div>
           ) : null}
@@ -299,7 +341,7 @@ export function PageEditorForm({
                   type="number"
                   step="0.01"
                   defaultValue={initialPage?.min_amount ?? ""}
-                  className="max-w-[10rem]"
+                  className={cn(formField, "max-w-[10rem]")}
                 />
               </div>
               <div className="space-y-2">
@@ -310,7 +352,7 @@ export function PageEditorForm({
                   type="number"
                   step="0.01"
                   defaultValue={initialPage?.max_amount ?? ""}
-                  className="max-w-[10rem]"
+                  className={cn(formField, "max-w-[10rem]")}
                 />
               </div>
             </div>
@@ -321,7 +363,14 @@ export function PageEditorForm({
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
           <CardTitle>Custom fields (max 10)</CardTitle>
-          <Button type="button" variant="outline" size="sm" onClick={addField} disabled={fields.length >= 10}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={addField}
+            disabled={fields.length >= 10}
+            className="rounded-full border-foreground/12 shadow-sm"
+          >
             Add field
           </Button>
         </CardHeader>
@@ -332,7 +381,7 @@ export function PageEditorForm({
             <ul className="space-y-4">
               {fields.map((f, idx) => (
                 <li key={f.clientKey}>
-                  <Card className="bg-muted/40 shadow-none">
+                  <Card className="border-foreground/10 bg-card/50 shadow-sm">
                     <CardContent className="space-y-3 pt-4">
                       <div className="flex flex-wrap gap-2">
                         <Button
@@ -446,7 +495,7 @@ export function PageEditorForm({
             required
             defaultValue={(initialPage?.gl_codes ?? []).join(", ")}
             placeholder="REV-YOGA-01, CITY-PARK-2025"
-            className="font-mono text-sm"
+            className={cn(formTextarea, "font-mono text-sm")}
           />
           <p className="text-xs text-muted-foreground">
             Letters, numbers, and ._-/ — each segment 2–32 characters. Stored on every transaction
@@ -475,6 +524,7 @@ export function PageEditorForm({
               name="email_subject"
               defaultValue={initialPage?.email_subject ?? ""}
               placeholder="Payment received — {{page_title}}"
+              className={formField}
             />
           </div>
           <div className="space-y-2">
@@ -485,7 +535,7 @@ export function PageEditorForm({
               rows={10}
               defaultValue={initialPage?.email_body_html ?? ""}
               placeholder="<p>Hi {{payer_name}}, …</p>"
-              className="font-mono text-sm"
+              className={cn(formTextarea, "min-h-48 font-mono text-sm")}
             />
           </div>
         </CardContent>
@@ -502,7 +552,7 @@ export function PageEditorForm({
             />
             Page is active (publicly accessible)
           </label>
-          <Button type="submit" className="ml-auto">
+          <Button type="submit" className="ml-auto rounded-full px-6 font-semibold shadow-sm">
             Save payment page
           </Button>
         </CardContent>

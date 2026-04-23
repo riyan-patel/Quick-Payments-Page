@@ -18,6 +18,7 @@ create table public.payment_pages (
   trust_panel text,
   logo_url text,
   brand_color text not null default '#0f766e',
+  brand_color_secondary text not null default '#f59e0b',
   amount_mode text not null check (amount_mode in ('fixed', 'range', 'open')),
   fixed_amount numeric(12, 2),
   min_amount numeric(12, 2),

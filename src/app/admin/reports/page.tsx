@@ -33,13 +33,12 @@ export default async function ReportsPage() {
   const initialRows = (txData ?? []) as Tx[];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Reports</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Reports</h1>
+        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">
           Default view: last 30 days. Filter by date, page, and status; export CSV matches the
-          current table. Breakdowns use GL codes on each transaction and Stripe payment method
-          types.
+          current table. Breakdowns use GL codes and Stripe payment method types.
         </p>
       </div>
       <ReportsClient

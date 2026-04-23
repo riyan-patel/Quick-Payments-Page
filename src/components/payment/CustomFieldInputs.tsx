@@ -4,6 +4,7 @@ import type { CustomFieldRow } from "@/types/qpp";
 import { parseOptions } from "@/types/qpp";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ListChecks } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -15,7 +16,7 @@ type Props = {
 };
 
 const selectClassName = cn(
-  "flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm transition-colors outline-none",
+  "flex h-12 w-full rounded-2xl border border-foreground/8 bg-card px-4 py-2 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.5)] transition-colors outline-none",
   "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
   "disabled:cursor-not-allowed disabled:opacity-50",
   "aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20",
@@ -32,7 +33,10 @@ export function CustomFieldInputs({
 
   return (
     <fieldset className="space-y-4 border-0 p-0">
-      <legend className="sr-only text-base font-semibold">Additional information</legend>
+      <legend className="flex items-center gap-2 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+        <ListChecks className="size-3.5 text-foreground/50" strokeWidth={1.75} aria-hidden />
+        Additional information
+      </legend>
       {fields.map((f) => {
         const err = errors[f.id];
         const id = `field-${f.id}`;
@@ -65,7 +69,10 @@ export function CustomFieldInputs({
                 onChange={(e) => onChange(f.id, e.target.value)}
                 aria-invalid={err ? true : undefined}
                 aria-describedby={describedBy}
-                className={cn(err && "border-destructive")}
+                className={cn(
+                  "h-12 rounded-2xl border-foreground/8 bg-card px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]",
+                  err && "border-destructive",
+                )}
               />
             )}
             {f.field_type === "number" && (
@@ -80,7 +87,10 @@ export function CustomFieldInputs({
                 onChange={(e) => onChange(f.id, e.target.value)}
                 aria-invalid={err ? true : undefined}
                 aria-describedby={describedBy}
-                className={cn(err && "border-destructive")}
+                className={cn(
+                  "h-12 rounded-2xl border-foreground/8 bg-card px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]",
+                  err && "border-destructive",
+                )}
               />
             )}
             {f.field_type === "date" && (
@@ -93,7 +103,10 @@ export function CustomFieldInputs({
                 onChange={(e) => onChange(f.id, e.target.value)}
                 aria-invalid={err ? true : undefined}
                 aria-describedby={describedBy}
-                className={cn(err && "border-destructive")}
+                className={cn(
+                  "h-12 rounded-2xl border-foreground/8 bg-card px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]",
+                  err && "border-destructive",
+                )}
               />
             )}
             {f.field_type === "dropdown" && (

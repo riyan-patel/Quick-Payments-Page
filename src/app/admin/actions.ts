@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { displayAmountMode } from "@/lib/amounts";
+import { formatBrandColorStorage } from "@/lib/brand-color-pair";
 import { validateGlCodes, parseGlCodesInput } from "@/lib/gl-codes";
 import { createClient } from "@/lib/supabase/server";
 import type { AmountMode, FieldType } from "@/types/qpp";
@@ -31,7 +32,6 @@ const pageSchema = z.object({
   title: z.string().min(1).max(200),
   subtitle: z.string().max(500).optional().nullable(),
   header_message: z.string().max(2000).optional().nullable(),
-  footer_message: z.string().max(2000).optional().nullable(),
   trust_panel: z.string().max(2000).optional().nullable(),
   logo_url: z
     .string()
@@ -43,7 +43,10 @@ const pageSchema = z.object({
     .transform((s) => (s === "" ? null : s)),
   brand_color: z
     .string()
-    .regex(/^#[0-9A-Fa-f]{6}$/, "Use a hex color like #0f766e."),
+    .regex(/^#[0-9A-Fa-f]{6}$/i, "Use a hex color like #0f766e."),
+  brand_color_secondary: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/i, "Use a hex color for the second brand color."),
   amount_mode: z.enum(["fixed", "range", "open"]),
   fixed_amount: z.number().optional().nullable(),
   min_amount: z.number().optional().nullable(),
@@ -80,6 +83,26 @@ function normalizeSlugInput(raw: string): string {
   return s;
 }
 
+type PaymentPageUpsert = {
+  slug: string;
+  title: string;
+  subtitle: string | null;
+  header_message: string | null;
+  footer_message: null;
+  trust_panel: string | null;
+  logo_url: string | null;
+  /** Encodes primary + secondary as `#p|#s` in the existing column. */
+  brand_color: string;
+  amount_mode: AmountMode;
+  fixed_amount: number | null;
+  min_amount: number | null;
+  max_amount: number | null;
+  gl_codes: string[];
+  is_active: boolean;
+  email_subject: string | null;
+  email_body_html: string | null;
+};
+
 function validateAmounts(
   mode: AmountMode,
   fixed: number | null | undefined,
@@ -106,10 +129,10 @@ export async function savePaymentPage(_prev: SavePageState, formData: FormData):
     title: formData.get("title") as string,
     subtitle: (formData.get("subtitle") as string) || null,
     header_message: (formData.get("header_message") as string) || null,
-    footer_message: (formData.get("footer_message") as string) || null,
     trust_panel: (formData.get("trust_panel") as string) || null,
     logo_url: (formData.get("logo_url") as string) || "",
     brand_color: formData.get("brand_color") as string,
+    brand_color_secondary: formData.get("brand_color_secondary") as string,
     amount_mode: formData.get("amount_mode") as AmountMode,
     fixed_amount: formData.get("fixed_amount")
       ? Number(formData.get("fixed_amount"))
@@ -149,15 +172,15 @@ export async function savePaymentPage(_prev: SavePageState, formData: FormData):
   } = await supabase.auth.getUser();
   if (!user) return { error: "You must be signed in." };
 
-  const row = {
+  const row: PaymentPageUpsert = {
     slug: v.slug,
     title: v.title,
-    subtitle: v.subtitle,
-    header_message: v.header_message,
-    footer_message: v.footer_message,
-    trust_panel: v.trust_panel,
-    logo_url: v.logo_url,
-    brand_color: v.brand_color,
+    subtitle: v.subtitle ?? null,
+    header_message: v.header_message ?? null,
+    footer_message: null,
+    trust_panel: v.trust_panel ?? null,
+    logo_url: v.logo_url ?? null,
+    brand_color: formatBrandColorStorage(v.brand_color, v.brand_color_secondary),
     amount_mode: v.amount_mode,
     fixed_amount:
       v.amount_mode === "fixed" && v.fixed_amount != null ? v.fixed_amount : null,
@@ -165,8 +188,8 @@ export async function savePaymentPage(_prev: SavePageState, formData: FormData):
     max_amount: v.amount_mode === "range" && v.max_amount != null ? v.max_amount : null,
     gl_codes: glCodes,
     is_active: v.is_active,
-    email_subject: v.email_subject,
-    email_body_html: v.email_body_html,
+    email_subject: v.email_subject ?? null,
+    email_body_html: v.email_body_html ?? null,
   };
 
   let pageId = v.id;
@@ -185,6 +208,7 @@ export async function savePaymentPage(_prev: SavePageState, formData: FormData):
       .select("id")
       .single();
     if (error) return { error: error.message };
+    if (!data?.id) return { error: "Could not create page." };
     pageId = data.id;
   }
 

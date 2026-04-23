@@ -13,10 +13,14 @@ export type PaymentPageRow = {
   title: string;
   subtitle: string | null;
   header_message: string | null;
+  /** @deprecated No longer shown or editable; kept for legacy DB rows. */
   footer_message: string | null;
   trust_panel: string | null;
   logo_url: string | null;
+  /** Single `#rrggbb` (legacy) or `#primary|#secondary` (both brand colors). */
   brand_color: string;
+  /** Optional DB column; pair is also encoded in `brand_color` after save. */
+  brand_color_secondary?: string | null;
   amount_mode: AmountMode;
   fixed_amount: string | null;
   min_amount: string | null;

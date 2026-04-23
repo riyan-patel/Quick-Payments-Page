@@ -8,11 +8,20 @@ export async function updateSession(
   request: NextRequest,
   initialResponse: NextResponse,
 ): Promise<NextResponse> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url?.trim() || !key?.trim()) {
+    console.error(
+      "[supabase/middleware] Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY. Set them in Vercel → Settings → Environment Variables, then Redeploy.",
+    );
+    return initialResponse;
+  }
+
   let supabaseResponse = initialResponse;
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    url,
+    key,
     {
       cookies: {
         getAll() {
@@ -29,9 +38,14 @@ export async function updateSession(
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user: Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"] = null;
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (!error) user = data.user;
+  } catch (e) {
+    console.error("[supabase/middleware] getUser() failed; check Supabase URL/key and project status.", e);
+    return initialResponse;
+  }
 
   const pathname = request.nextUrl.pathname;
   const path = getPathnameWithoutLocale(pathname);

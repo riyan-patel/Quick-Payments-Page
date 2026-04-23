@@ -111,13 +111,16 @@ export default async function PublicPayPage({ params }: Props) {
                 {t("hostLabel")}
               </p>
               {p.logo_url ? (
-                <div className="relative mt-3 flex justify-center lg:justify-start">
-                  <div className="flex w-full max-w-full items-center justify-center rounded-2xl border border-border/80 bg-card/90 p-5 shadow-sm sm:p-7">
+                <div className="relative mt-3 w-full min-w-0">
+                  <div
+                    className="relative aspect-square w-full max-w-full overflow-hidden rounded-2xl border border-border/80 bg-card/90 shadow-sm"
+                    data-qpp="host-logo"
+                  >
                     <img
                       src={p.logo_url}
                       alt={`${p.title} logo`}
-                      className="h-auto w-auto max-h-32 max-w-full object-contain sm:max-h-40 lg:max-h-52"
-                      sizes="(max-width: 1024px) 100vw, 400px"
+                      className="absolute inset-0 h-full w-full object-cover object-center"
+                      sizes="(max-width: 1024px) 100vw, min(100vw, 32rem)"
                     />
                   </div>
                 </div>

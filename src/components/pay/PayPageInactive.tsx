@@ -64,11 +64,11 @@ export async function PayPageInactive({
           <Card className="border-0 bg-transparent shadow-none">
             <CardContent className={cn("space-y-4", embed ? "p-4 sm:p-5" : "p-6 sm:p-8")}>
               {logo_url ? (
-                <div className="flex justify-center">
+                <div className="mx-auto flex h-12 w-full max-w-xs min-w-0 items-center justify-center sm:h-14">
                   <img
                     src={logo_url}
                     alt=""
-                    className="h-10 w-auto max-w-full object-contain sm:h-12"
+                    className="h-full w-full min-h-0 min-w-0 object-contain object-center"
                     width={200}
                     height={48}
                   />

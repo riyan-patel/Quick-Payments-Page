@@ -65,13 +65,15 @@ export default async function EmbedPayPage({ params }: Props) {
           </div>
           <div className="border-b border-border/60 pb-3.5 text-center">
             {p.logo_url ? (
-              <img
-                src={p.logo_url}
-                alt=""
-                className="mx-auto h-9 w-auto object-contain sm:h-11"
-                width={160}
-                height={40}
-              />
+              <div className="mx-auto flex h-10 w-full max-w-[12rem] min-w-0 items-center justify-center sm:h-12">
+                <img
+                  src={p.logo_url}
+                  alt=""
+                  className="h-full w-full min-h-0 min-w-0 object-contain object-center"
+                  width={192}
+                  height={48}
+                />
+              </div>
             ) : null}
             <h1 className="pay-font-display mt-1.5 text-base font-bold tracking-tight sm:text-lg">
               {p.title}

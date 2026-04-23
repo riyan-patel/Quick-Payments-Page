@@ -1,5 +1,5 @@
 import type { CustomFieldRow } from "@/types/qpp";
-import { parseOptions } from "@/types/qpp";
+import { parseNumberFieldBounds, parseOptions } from "@/types/qpp";
 
 type CustomFieldT = (key: string, values?: Record<string, string>) => string;
 
@@ -24,6 +24,14 @@ export function getCustomFieldValidationError(
     switch (f.field_type) {
       case "number": {
         if (!Number.isFinite(Number(v))) return t("errors.fieldNumber", { label });
+        const n = Number(v);
+        const { min, max } = parseNumberFieldBounds(f);
+        if (min != null && n < min) {
+          return t("errors.fieldNumberAtLeast", { label, min: String(min) });
+        }
+        if (max != null && n > max) {
+          return t("errors.fieldNumberAtMost", { label, max: String(max) });
+        }
         break;
       }
       case "date": {
@@ -62,6 +70,18 @@ export function validateCustomFieldResponses(
     switch (f.field_type) {
       case "number": {
         if (!Number.isFinite(Number(v))) return `“${f.label}” must be a number.`;
+        const n = Number(v);
+        const { min, max } = parseNumberFieldBounds(f);
+        if (min != null && n < min) {
+          return max != null
+            ? `“${f.label}” must be between ${min} and ${max}.`
+            : `“${f.label}” must be at least ${min}.`;
+        }
+        if (max != null && n > max) {
+          return min != null
+            ? `“${f.label}” must be between ${min} and ${max}.`
+            : `“${f.label}” must be at most ${max}.`;
+        }
         break;
       }
       case "date": {

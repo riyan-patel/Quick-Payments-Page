@@ -4,6 +4,7 @@ import { Link } from "@/i18n/navigation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { TogglePageActiveForm } from "@/components/admin/TogglePageActiveForm";
 import { createClient } from "@/lib/supabase/server";
 import type { PaymentPageRow } from "@/types/qpp";
 import { cn } from "@/lib/utils";
@@ -103,19 +104,38 @@ export default async function AdminPagesListPage({ params }: Props) {
                     </p>
                   </div>
                   <div className="flex flex-shrink-0 flex-wrap gap-2">
-                    <Link
-                      href={`/pay/${p.slug}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className={cn(
-                        buttonVariants({ variant: "outline", size: "sm" }),
-                        "inline-flex gap-1.5 rounded-full border-foreground/12 bg-card/40 font-medium no-underline shadow-sm transition",
-                        "hover:border-foreground/20 hover:bg-card hover:shadow",
-                      )}
-                    >
-                      <ExternalLink className="size-3.5" strokeWidth={1.75} aria-hidden />
-                      {t("open")}
-                    </Link>
+                    {p.is_active ? (
+                      <Link
+                        href={`/pay/${p.slug}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={cn(
+                          buttonVariants({ variant: "outline", size: "sm" }),
+                          "inline-flex gap-1.5 rounded-full border-foreground/12 bg-card/40 font-medium no-underline shadow-sm transition",
+                          "hover:border-foreground/20 hover:bg-card hover:shadow",
+                        )}
+                      >
+                        <ExternalLink className="size-3.5" strokeWidth={1.75} aria-hidden />
+                        {t("open")}
+                      </Link>
+                    ) : (
+                      <span
+                        className={cn(
+                          buttonVariants({ variant: "outline", size: "sm" }),
+                          "inline-flex cursor-not-allowed gap-1.5 rounded-full border-foreground/8 bg-muted/40 font-medium text-muted-foreground no-underline opacity-60",
+                        )}
+                        title={t("openDisabledTitle")}
+                      >
+                        <ExternalLink className="size-3.5" strokeWidth={1.75} aria-hidden />
+                        {t("open")}
+                      </span>
+                    )}
+                    <TogglePageActiveForm
+                      pageId={p.id}
+                      isActive={p.is_active}
+                      labelDisable={t("toggleDisable")}
+                      labelEnable={t("toggleEnable")}
+                    />
                     <Link
                       href={`/admin/pages/${p.id}/edit`}
                       className={cn(

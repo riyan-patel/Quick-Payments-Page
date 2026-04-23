@@ -16,6 +16,12 @@ const DEFAULT_PAYEE_BODY = `<p>You received <strong>{{amount}}</strong> for <str
 <p>Transaction ID: {{transaction_id}}<br />Date: {{date}}</p>
 <p>{{custom_fields}}</p>`;
 
+/** Pre-filled in the page editor and aligned with `renderEmail*()` when the DB value is null/empty. */
+export const PAYER_EMAIL_TEMPLATE_DEFAULT_SUBJECT = DEFAULT_SUBJECT;
+export const PAYER_EMAIL_TEMPLATE_DEFAULT_BODY = DEFAULT_BODY;
+export const PAYEE_EMAIL_TEMPLATE_DEFAULT_SUBJECT = DEFAULT_PAYEE_SUBJECT;
+export const PAYEE_EMAIL_TEMPLATE_DEFAULT_BODY = DEFAULT_PAYEE_BODY;
+
 export function defaultEmailSubject(pageTitle: string) {
   return DEFAULT_SUBJECT.replaceAll("{{page_title}}", pageTitle);
 }

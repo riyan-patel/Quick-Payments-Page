@@ -2,13 +2,21 @@ import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { DistributionPanel } from "@/components/admin/DistributionPanel";
 import { PageEditorForm } from "@/components/admin/PageEditorForm";
+import { getCustomFieldsForPage } from "@/lib/custom-fields-for-page";
 import { createClient } from "@/lib/supabase/server";
 import type { CustomFieldRow, PaymentPageRow } from "@/types/qpp";
 
-type Props = { params: Promise<{ id: string; locale: string }> };
+type Props = {
+  params: Promise<{ id: string; locale: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
-export default async function EditPaymentPage({ params }: Props) {
+export default async function EditPaymentPage({ params, searchParams }: Props) {
   const { id, locale } = await params;
+  const sp = await searchParams;
+  const savedParam = sp.saved;
+  const showSaveSuccess =
+    savedParam === "1" || (Array.isArray(savedParam) && savedParam[0] === "1");
   setRequestLocale(locale);
   const t = await getTranslations("adminEdit");
 
@@ -22,14 +30,14 @@ export default async function EditPaymentPage({ params }: Props) {
 
   if (error || !page) notFound();
 
-  const { data: fieldsRaw } = await supabase
-    .from("custom_fields")
-    .select("*")
-    .eq("page_id", id)
-    .order("sort_order", { ascending: true });
-
   const p = page as PaymentPageRow;
-  const fields = (fieldsRaw ?? []) as CustomFieldRow[];
+  let fields: CustomFieldRow[];
+  try {
+    const r = await getCustomFieldsForPage(supabase, id);
+    fields = r.data;
+  } catch {
+    notFound();
+  }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
 
@@ -50,7 +58,7 @@ export default async function EditPaymentPage({ params }: Props) {
         <h2 className="app-heading mb-4 text-xl font-semibold text-foreground">
           {t("configHeading")}
         </h2>
-        <PageEditorForm initialPage={p} initialFields={fields} />
+        <PageEditorForm initialPage={p} initialFields={fields} showSaveSuccess={showSaveSuccess} />
       </div>
     </div>
   );

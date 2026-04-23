@@ -36,14 +36,113 @@ flowchart LR
 - **Payments**: `create-intent` validates amount against the page configuration and custom fields server-side. `complete` verifies the PaymentIntent with Stripe, persists the row idempotently, and sends email via Resend.
 - **Differentiator**: Optional **trust & transparency** panel per page (plain text) plus built-in copy on security and email receipts—aimed at municipal and professional services use cases.
 
-## API (HTTP)
+## API endpoints
 
-| Method & path | Purpose |
-|---------------|---------|
-| `POST /api/payments/create-intent` | Body: `{ slug, amount, payer_email, payer_name, field_values }`. Returns `{ clientSecret }` for Stripe Elements. |
-| `POST /api/payments/complete` | Body: `{ payment_intent_id, slug, amount, payer_email?, payer_name?, field_values }`. Verifies Stripe, writes `transactions` + `field_responses`, sends confirmation email. |
+There is **no OpenAPI/Swagger file** in this repo; the table below documents every App Router handler under `src/app/api` and the auth callback under `src/app/auth`. All JSON bodies use `Content-Type: application/json`. Base URL is your deployment origin (e.g. `http://localhost:3000` in dev).
 
-All secrets stay in environment variables; nothing sensitive is exposed to the browser except the Stripe publishable key.
+### Summary
+
+| Method & path | Auth | Purpose |
+|---------------|------|---------|
+| `POST /api/payments/create-intent` | Public (RLS) | Create a Stripe PaymentIntent for an **active** payment page; returns `clientSecret` for Elements. |
+| `POST /api/payments/complete` | Public + server secrets | After client-side payment success: verify PaymentIntent, persist transaction, send Resend emails. |
+| `POST /api/admin/reports/ask` | Supabase session (admin) | Natural-language Q&A over the signed-in user’s transactions (OpenAI). |
+| `GET /auth/callback` | — | OAuth redirect handler: exchanges `?code=` for a session; not a JSON API. |
+
+Secrets stay in environment variables; only `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` is intended for the browser.
+
+---
+
+### `POST /api/payments/create-intent`
+
+Starts checkout for a published page. Validates amount and custom fields server-side.
+
+**Request body**
+
+| Field | Type | Required | Notes |
+|-------|------|----------|--------|
+| `slug` | string | yes | Payment page slug (path segment). |
+| `amount` | number | yes | Positive; checked against page `amount_mode` / min / max / fixed. |
+| `payer_email` | string | yes | Valid email. |
+| `payer_name` | string | yes | 1–200 chars. |
+| `field_values` | object | no | Map of `custom_field_id` → string value; optional fields may be empty. |
+
+**Success — `200`**
+
+```json
+{
+  "clientSecret": "pi_…_secret_…",
+  "publishableKey": "<from NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY>"
+}
+```
+
+**Common errors** — `400` validation / amount / field rules; `404` no active page for slug; `500` could not load custom fields; `502` Stripe failure.
+
+---
+
+### `POST /api/payments/complete`
+
+Idempotent: records one succeeded transaction per PaymentIntent. Call after the PaymentIntent is **succeeded** (same session as `create-intent`).
+
+**Request body**
+
+| Field | Type | Required | Notes |
+|-------|------|----------|--------|
+| `payment_intent_id` | string | yes | Stripe PaymentIntent id. |
+| `slug` | string | yes | Must match `metadata` on the intent. |
+| `amount` | number | yes | Must match the charged amount (cents → dollars logic on server). |
+| `payer_email` | string | no | Falls back to Stripe `metadata.payer_email` if omitted. |
+| `payer_name` | string | no | Falls back to metadata if omitted. |
+| `field_values` | object | no | Re-validated against page custom fields. |
+
+**Success — `200`**
+
+```json
+{
+  "ok": true,
+  "transaction_id": "<uuid>",
+  "emails": { "payer": true, "payee": true }
+}
+```
+
+`emails` reflects whether Resend accepted each message (payer = customer receipt, payee = host notification). If the server already stored this PaymentIntent, you may get `duplicate: true` and optionally `receiptRetry: true` while any missing receipt emails are retried.
+
+**Common errors** — `400` mismatch, validation, or missing payer details; `404` page disabled; `409` intent not succeeded yet; `500` save or field load failure; `502` upstream.
+
+---
+
+### `POST /api/admin/reports/ask`
+
+Requires a logged-in Supabase user (session cookie / bearer per your client). Uses **OpenAI** (`OPENAI_API_KEY`); optional `OPENAI_REPORTS_MODEL` (default `gpt-4o-mini`). Set `REPORTS_ASK_STRUCTURED=0` to force the unstructured answer path only.
+
+**Request body**
+
+| Field | Type | Required | Notes |
+|-------|------|----------|--------|
+| `question` | string | yes | 3–2000 characters. |
+| `timeZone` | string | no | IANA zone for calendar interpretation (e.g. `America/New_York`). |
+
+**Success — `200`**
+
+```json
+{
+  "answer": "…",
+  "rowCount": 123,
+  "sent": 123,
+  "model": "gpt-4o-mini",
+  "source": "supabase"
+}
+```
+
+`rowCount` is total rows matching the server query; `sent` is how many are included in the JSON payload to the model (capped, e.g. 5000).
+
+**Errors** — `400` bad body; `401` not signed in; `503` missing `OPENAI_API_KEY`; `502` OpenAI failure.
+
+---
+
+### `GET /auth/callback`
+
+Supabase (or other OAuth) redirects here with `?code=…&next=/path`. Exchanges the code for a session and redirects to `next` (default `/admin`). On failure, redirects to `/login?error=auth`. **Do not** call this with `fetch` expecting JSON; it is a **browser redirect** flow.
 
 ## Local setup
 

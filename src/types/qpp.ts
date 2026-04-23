@@ -65,7 +65,24 @@ export type CustomFieldRow = {
   placeholder: string | null;
   helper_text: string | null;
   sort_order: number;
+  /** When `field_type` is `number`, optional inclusive min (from DB `numeric`). */
+  min_value?: string | null;
+  /** When `field_type` is `number`, optional inclusive max (from DB `numeric`). */
+  max_value?: string | null;
 };
+
+/** Inclusive bounds for number custom fields (used for HTML min/max and validation). */
+export function parseNumberFieldBounds(f: CustomFieldRow): { min: number | null; max: number | null } {
+  if (f.field_type !== "number") return { min: null, max: null };
+  const minRaw = f.min_value;
+  const maxRaw = f.max_value;
+  const min = minRaw != null && String(minRaw).trim() !== "" ? Number(minRaw) : null;
+  const max = maxRaw != null && String(maxRaw).trim() !== "" ? Number(maxRaw) : null;
+  return {
+    min: min != null && Number.isFinite(min) ? min : null,
+    max: max != null && Number.isFinite(max) ? max : null,
+  };
+}
 
 export type TransactionRow = {
   id: string;

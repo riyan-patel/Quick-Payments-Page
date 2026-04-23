@@ -44,6 +44,8 @@
   "remove": "Quitar",
   "fieldLabel": "Etiqueta",
   "fieldType": "Tipo",
+  "fieldMin": "Mín. (opcional)",
+  "fieldMax": "Máx. (opcional)",
   "fieldOptions": "Opciones (separadas por comas)",
   "required": "Obligatorio",
   "placeholder": "Texto de ejemplo",
@@ -52,11 +54,16 @@
   "glDesc": "Segmentos de informe vinculados a cada transacción.",
   "glLabel": "Códigos (separados por comas o saltos de línea)",
   "glHelp": "Letras, números y ._-/ — cada segmento 2–32 caracteres. Se guarda en cada transacción para informes.",
-  "emailTitle": "Email de confirmación (Resend)",
-  "emailDesc": "Plantilla con marcadores de variable.",
+  "emailTitle": "Email al cliente (pagador)",
+  "emailDesc": "Se envía al correo del pagador tras un pago correcto. Configura tu dominio en Resend para que llegue a cualquier dirección, no solo a correos de prueba.",
   "emailVars": "Variables:",
   "emailSubject": "Asunto",
   "emailBody": "Cuerpo HTML",
   "save": "Guardar página de pago",
-  "isActive": "Página activa (acceso público)"
+  "saving": "Guardando…",
+  "publicAccessTitle": "Visibilidad",
+  "publicAccessDesc": "Controla si los clientes pueden abrir esta página y pagar.",
+  "isActive": "Página publicada (pública)",
+  "isActiveHelp": "Si está desactivada, el enlace /pay, el embed y las APIs de pago no estarán disponibles. Aquí sigues pudiendo editar.",
+  "saveSuccess": "Cambios guardados."
 }

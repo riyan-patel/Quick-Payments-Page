@@ -200,6 +200,75 @@ export function buildStructuredNarration(
     );
     return `Between ${t0} and ${t1} local time on ${dayStr}: ${String(n)} succeeded purchase(s) with total revenue of ${typeof rev === "number" ? money(rev) : String(rev)}.`;
   }
+  if (result.kind === "table" && templateId === "page_title_fuzzy_people_succeeded_stats") {
+    const row = result.rows[0];
+    const needle = (slots.page_contains ?? "").trim() || "that page name";
+    if (!row || result.rows.length === 0) {
+      return `No matching succeeded payments for page titles containing "${needle}" in the loaded scope${
+        slots.year != null && slots.month != null
+          ? ` (local ${formatInTimeZone(
+              fromZonedTime(
+                new Date(slots.year, slots.month - 1, 1, 0, 0, 0, 0),
+                timeZone,
+              ),
+              timeZone,
+              "MMMM yyyy",
+            )})`
+          : ""
+      }.`;
+    }
+    const [uniq, payN, rev] = row;
+    const period =
+      slots.year != null && slots.month != null
+        ? formatInTimeZone(
+            fromZonedTime(
+              new Date(slots.year, slots.month - 1, 1, 0, 0, 0, 0),
+              timeZone,
+            ),
+            timeZone,
+            "MMMM yyyy",
+          )
+        : "all loaded payments in this report";
+    return `For page titles containing "${needle}" (case-insensitive), within ${period}: ${String(
+      uniq,
+    )} unique payer(s) with ${String(payN)} succeeded payment(s), totaling ${
+      typeof rev === "number" ? money(rev) : String(rev)
+    }.`;
+  }
+  if (result.kind === "table" && templateId === "payer_name_page_purchases_loaded") {
+    const row = result.rows[0];
+    const nameN = (slots.payer_name_contains ?? "").trim() || "that payer name";
+    const pageN = (slots.page_contains ?? "").trim() || "that page";
+    if (!row || result.rows.length === 0) {
+      return `No matching succeeded payments for payer names containing "${nameN}" and page titles containing "${pageN}" in the loaded scope${
+        slots.year != null && slots.month != null
+          ? ` (local ${formatInTimeZone(
+              fromZonedTime(
+                new Date(slots.year, slots.month - 1, 1, 0, 0, 0, 0),
+                timeZone,
+              ),
+              timeZone,
+              "MMMM yyyy",
+            )})`
+          : ""
+      }.`;
+    }
+    const [n, rev] = row;
+    const period =
+      slots.year != null && slots.month != null
+        ? formatInTimeZone(
+            fromZonedTime(
+              new Date(slots.year, slots.month - 1, 1, 0, 0, 0, 0),
+              timeZone,
+            ),
+            timeZone,
+            "MMMM yyyy",
+          )
+        : "all loaded payments in this report";
+    return `For payer name containing "${nameN}" and page title containing "${pageN}" (case-insensitive), within ${period}: ${String(
+      n,
+    )} succeeded purchase(s), total ${typeof rev === "number" ? money(rev) : String(rev)}.`;
+  }
   if (
     result.kind === "table" &&
     (templateId === "email_domain_succeeded_stats" ||

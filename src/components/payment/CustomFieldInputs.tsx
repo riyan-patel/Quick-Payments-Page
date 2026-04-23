@@ -1,7 +1,7 @@
 "use client";
 
 import type { CustomFieldRow } from "@/types/qpp";
-import { parseOptions } from "@/types/qpp";
+import { parseNumberFieldBounds, parseOptions } from "@/types/qpp";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ListChecks } from "lucide-react";
@@ -51,6 +51,7 @@ export function CustomFieldInputs({
         const errId = err ? `${id}-err` : undefined;
         const describedBy = [errId, helpId].filter(Boolean).join(" ") || undefined;
         const opts = parseOptions(f.options);
+        const numBounds = parseNumberFieldBounds(f);
 
         return (
           <div key={f.id} className="space-y-2">
@@ -85,6 +86,8 @@ export function CustomFieldInputs({
                 name={id}
                 type="number"
                 step="any"
+                min={numBounds.min ?? undefined}
+                max={numBounds.max ?? undefined}
                 disabled={disabled}
                 placeholder={f.placeholder ?? undefined}
                 value={values[f.id] ?? ""}

@@ -8,8 +8,16 @@ import { z } from "zod";
 import { displayAmountMode } from "@/lib/amounts";
 import { formatBrandColorStorage } from "@/lib/brand-color-pair";
 import { validateGlCodes, parseGlCodesInput } from "@/lib/gl-codes";
+import { isCustomFieldsPostgrestCacheError } from "@/lib/custom-fields-for-page";
 import { createClient } from "@/lib/supabase/server";
 import type { AmountMode, FieldType } from "@/types/qpp";
+
+function formatCustomFieldsDbError(error: { message: string }): string {
+  if (isCustomFieldsPostgrestCacheError(error)) {
+    return `${error.message} In Supabase → SQL, run: NOTIFY pgrst, 'reload schema'; (full fix: supabase/snippets/repair_custom_fields_bounds.sql).`;
+  }
+  return error.message;
+}
 
 const slugSchema = z
   .string()
@@ -17,16 +25,27 @@ const slugSchema = z
   .max(64)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase letters, numbers, and hyphens only.");
 
-const fieldSchema = z.object({
-  id: z.string().uuid().optional(),
-  label: z.string().min(1).max(200),
-  field_type: z.enum(["text", "number", "dropdown", "date", "checkbox"]),
-  options: z.array(z.string()).optional().default([]),
-  required: z.boolean(),
-  placeholder: z.string().max(300).optional().nullable(),
-  helper_text: z.string().max(500).optional().nullable(),
-  sort_order: z.number().int().min(0).max(99),
-});
+const fieldSchema = z
+  .object({
+    id: z.string().uuid().optional(),
+    label: z.string().min(1).max(200),
+    field_type: z.enum(["text", "number", "dropdown", "date", "checkbox"]),
+    options: z.array(z.string()).optional().default([]),
+    required: z.boolean(),
+    placeholder: z.string().max(300).optional().nullable(),
+    helper_text: z.string().max(500).optional().nullable(),
+    sort_order: z.number().int().min(0).max(99),
+    min_value: z.number().finite().optional().nullable(),
+    max_value: z.number().finite().optional().nullable(),
+  })
+  .refine(
+    (f) => {
+      if (f.field_type !== "number") return true;
+      if (f.min_value == null || f.max_value == null) return true;
+      return f.min_value <= f.max_value;
+    },
+    { message: "For number fields, minimum cannot be greater than maximum." },
+  );
 
 const pageSchema = z.object({
   id: z.string().uuid().optional(),
@@ -246,38 +265,52 @@ export async function savePaymentPage(_prev: SavePageState, formData: FormData):
 
   for (const f of v.fields) {
     const options = f.field_type === "dropdown" ? f.options.filter(Boolean) : [];
+    const minVal = f.field_type === "number" ? f.min_value ?? null : null;
+    const maxVal = f.field_type === "number" ? f.max_value ?? null : null;
+    const rowCore = {
+      label: f.label,
+      field_type: f.field_type as FieldType,
+      options,
+      required: f.required,
+      placeholder: f.placeholder,
+      helper_text: f.helper_text,
+      sort_order: f.sort_order,
+    };
+    const rowWithBounds =
+      f.field_type === "number"
+        ? { ...rowCore, min_value: minVal, max_value: maxVal }
+        : rowCore;
     if (f.id && existingIds.has(f.id)) {
       kept.add(f.id);
-      const { error } = await supabase
+      let { error } = await supabase
         .from("custom_fields")
-        .update({
-          label: f.label,
-          field_type: f.field_type as FieldType,
-          options,
-          required: f.required,
-          placeholder: f.placeholder,
-          helper_text: f.helper_text,
-          sort_order: f.sort_order,
-        })
+        .update(rowWithBounds)
         .eq("id", f.id)
         .eq("page_id", pageId!);
-      if (error) return { error: error.message };
+      if (error && isCustomFieldsPostgrestCacheError(error) && f.field_type === "number") {
+        ({ error } = await supabase
+          .from("custom_fields")
+          .update(rowCore)
+          .eq("id", f.id)
+          .eq("page_id", pageId!));
+      }
+      if (error) return { error: formatCustomFieldsDbError(error) };
     } else {
-      const { data: ins, error } = await supabase
+      const insertWithBounds = { page_id: pageId!, ...rowWithBounds };
+      let { data: ins, error } = await supabase
         .from("custom_fields")
-        .insert({
-          page_id: pageId!,
-          label: f.label,
-          field_type: f.field_type,
-          options,
-          required: f.required,
-          placeholder: f.placeholder,
-          helper_text: f.helper_text,
-          sort_order: f.sort_order,
-        })
+        .insert(insertWithBounds)
         .select("id")
         .single();
-      if (error) return { error: error.message };
+      if (error && isCustomFieldsPostgrestCacheError(error) && f.field_type === "number") {
+        ({ data: ins, error } = await supabase
+          .from("custom_fields")
+          .insert({ page_id: pageId!, ...rowCore })
+          .select("id")
+          .single());
+      }
+      if (error) return { error: formatCustomFieldsDbError(error) };
+      if (!ins?.id) return { error: "Could not save custom field." };
       kept.add(ins.id);
     }
   }
@@ -292,9 +325,8 @@ export async function savePaymentPage(_prev: SavePageState, formData: FormData):
   revalidatePath(`/pay/${v.slug}`);
   revalidatePath(`/embed/${v.slug}`);
 
-  return redirect(
-    withLocalePath(locale, `/admin/pages/${pageId}/edit` as `/${string}`),
-  );
+  const base = withLocalePath(locale, `/admin/pages/${pageId}/edit` as `/${string}`);
+  return redirect(`${base}?saved=1`);
 }
 
 export async function deletePaymentPage(pageId: string): Promise<{ error?: string }> {

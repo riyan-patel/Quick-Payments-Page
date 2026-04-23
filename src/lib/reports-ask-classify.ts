@@ -36,6 +36,53 @@ const outSchema = z.object({
 
 const ALLOWED = new Set(REPORT_ASK_CATALOG.map((c) => c.id));
 
+/**
+ * Page title fragment after "how many people purchased|bought|paid for …".
+ * Strips trailing "in April", "in May 2026", etc. so month slots can still scope the query.
+ */
+function extractPageTitleForPeoplePurchaseQuestion(q: string): string | undefined {
+  const m =
+    q.match(/\bhow many people (?:purchased|bought)\s+(.+)$/i) ??
+    q.match(/\bhow many people paid for\s+(.+)$/i);
+  if (!m) return undefined;
+  let frag = m[1].trim().replace(/[?.!]+$/g, "").trim();
+  if (frag.length < 2) return undefined;
+  if (/^(in|during|on|for)\s/i.test(frag)) return undefined;
+  for (const name of Object.keys(MONTH_ALIASES)) {
+    const re = new RegExp(`\\s+in\\s+${name}(?:\\s+20[2-3][0-9])?$`, "i");
+    frag = frag.replace(re, "").trim();
+  }
+  frag = frag.replace(/\s+in\s+20[2-3][0-9]$/i, "").trim();
+  frag = frag.replace(/\s+in\s+q[1-4](?:\s+20[2-3][0-9])?$/i, "").trim();
+  frag = frag.replace(/\s+(?:this|last|next)\s+month$/i, "").trim();
+  return frag.length >= 2 ? frag : undefined;
+}
+
+/**
+ * "How many times did [payer] purchase|bought|paid for [page fragment]" → name + page title substring.
+ * Strips trailing month phrases from the page part (same as people-purchased heuristics).
+ */
+function extractPayerNameAndPageForTimesPurchaseQuestion(
+  q: string,
+): { name: string; page: string } | undefined {
+  const m = q.match(
+    /\bhow many times did\s+(.+?)\s+(?:purchas(?:e|ed)|bought|paid for)\s+(.+)$/i,
+  );
+  if (!m) return undefined;
+  let namePart = m[1].trim().replace(/[?.!]+$/g, "").trim();
+  let pagePart = m[2].trim().replace(/[?.!]+$/g, "").trim();
+  if (namePart.length < 2 || pagePart.length < 2) return undefined;
+  for (const monthName of Object.keys(MONTH_ALIASES)) {
+    const re = new RegExp(`\\s+in\\s+${monthName}(?:\\s+20[2-3][0-9])?$`, "i");
+    pagePart = pagePart.replace(re, "").trim();
+  }
+  pagePart = pagePart.replace(/\s+in\s+20[2-3][0-9]$/i, "").trim();
+  pagePart = pagePart.replace(/\s+in\s+q[1-4](?:\s+20[2-3][0-9])?$/i, "").trim();
+  pagePart = pagePart.replace(/\s+(?:this|last|next)\s+month$/i, "").trim();
+  if (pagePart.length < 2) return undefined;
+  return { name: namePart, page: pagePart };
+}
+
 const MONTH_ALIASES: Record<string, number> = {
   jan: 1,
   january: 1,
@@ -212,6 +259,15 @@ function heuristicFromQuestion(q: string): Partial<ReportAskSlots> {
     }
   }
 
+  const timesPayerPage = extractPayerNameAndPageForTimesPurchaseQuestion(q);
+  if (timesPayerPage) {
+    t.payer_name_contains = timesPayerPage.name;
+    t.page_contains = timesPayerPage.page;
+  } else {
+    const pageFromPeople = extractPageTitleForPeoplePurchaseQuestion(q);
+    if (pageFromPeople) t.page_contains = pageFromPeople;
+  }
+
   return t;
 }
 
@@ -320,6 +376,8 @@ Rules:
 - "Today" for revenue (so far) → total_revenue_today_utc.
 - "Show failed" / "recent failures" as a list → list_recent_failed.
 - Use page_contains when the user names a page (substring match).
+- "How many times did [payer] purchase|bought|paid for [page name]" (count of succeeded payments) → payer_name_page_purchases_loaded: set payer_name_contains and page_contains. Same month/year scoping: local month if named, else all loaded rows in this request.
+- "How many people purchased / bought / paid for [page or product name]" (and similar) → page_title_fuzzy_people_succeeded_stats with page_contains set to the name (substring match on payment page title). If a calendar month/year is in the question, set month/year to scope; if not, leave month/year unset so the answer uses all succeeded rows loaded in this request.
 - "How many @gatech.edu / Georgia Tech / emails from a school domain made a payment, how much, what percent of total?" → email_domain_succeeded_stats with email_domain_contains (e.g. gatech.edu). Same scope rules: with month+year in the question, scope to that local month; otherwise all succeeded rows in the loaded data.
 - "Emails containing X" (not just domain) → email_substring_succeeded_stats and email_contains.
 - "Top email domains" / "which domains pay most" → top_n_email_domains_by_revenue.
@@ -356,23 +414,37 @@ ${JSON.stringify(heur)}
   } catch {
     return null;
   }
-  if (!parsed.templateId || (parsed.confidence ?? 0) < MIN_CONFIDENCE) {
-    return null;
-  }
-  if (!ALLOWED.has(parsed.templateId)) {
-    return null;
-  }
+
   const slots = mergeSlots(heur, parsed.slots ?? {}) as ReportAskSlots;
-  let templateId = parsed.templateId;
-  if (shouldOverrideToMultiDayRange(templateId, slots)) {
-    templateId = "succeeded_revenue_local_datetime_range";
+  let templateId: string | null = parsed.templateId ?? null;
+  let confidence = parsed.confidence ?? 0;
+
+  const timesPayerPage = extractPayerNameAndPageForTimesPurchaseQuestion(question);
+  if (timesPayerPage) {
+    slots.payer_name_contains = timesPayerPage.name;
+    slots.page_contains = timesPayerPage.page;
+    templateId = "payer_name_page_purchases_loaded";
+    confidence = Math.max(confidence, 0.92);
+  } else {
+    const peoplePage = extractPageTitleForPeoplePurchaseQuestion(question);
+    if (peoplePage) {
+      slots.page_contains = peoplePage;
+      templateId = "page_title_fuzzy_people_succeeded_stats";
+      confidence = Math.max(confidence, 0.92);
+    } else if (templateId && shouldOverrideToMultiDayRange(templateId, slots)) {
+      templateId = "succeeded_revenue_local_datetime_range";
+    }
+  }
+
+  if (!templateId || confidence < MIN_CONFIDENCE) {
+    return null;
   }
   if (!ALLOWED.has(templateId)) {
     return null;
   }
   return {
     templateId,
-    confidence: Math.min(1, Math.max(0, parsed.confidence ?? 0.7)),
+    confidence: Math.min(1, Math.max(0, confidence)),
     slots,
   };
 }

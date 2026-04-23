@@ -1,12 +1,17 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import { useActionState, useMemo, useState, type ReactNode } from "react";
+import { useActionState, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useFormStatus } from "react-dom";
 import type { SavePageState } from "@/app/admin/actions";
 import { savePaymentPage } from "@/app/admin/actions";
 import type { AmountMode, CustomFieldRow, FieldType, PaymentPageRow } from "@/types/qpp";
 import { BrandingColorPreview } from "@/components/admin/BrandingColorPreview";
 import { parseBrandColorStorage } from "@/lib/brand-color-pair";
+import {
+  PAYER_EMAIL_TEMPLATE_DEFAULT_BODY,
+  PAYER_EMAIL_TEMPLATE_DEFAULT_SUBJECT,
+} from "@/lib/email-template";
 import { parseOptions } from "@/types/qpp";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -17,7 +22,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
   Braces,
+  CheckCircle2,
   CircleDollarSign,
+  Eye,
   Link2,
   ListTree,
   Mail,
@@ -30,6 +37,9 @@ type DraftField = {
   label: string;
   field_type: FieldType;
   optionsText: string;
+  /** String form for number min/max; empty means no bound. */
+  min_value: string;
+  max_value: string;
   required: boolean;
   placeholder: string;
   helper_text: string;
@@ -85,14 +95,41 @@ function newKey() {
   return `k-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function EditorSubmitButton() {
+  const t = useTranslations("editor");
+  const { pending } = useFormStatus();
+  return (
+    <Button
+      type="submit"
+      className="w-full rounded-full px-6 font-semibold shadow-sm sm:w-auto"
+      disabled={pending}
+      aria-busy={pending}
+    >
+      {pending ? t("saving") : t("save")}
+    </Button>
+  );
+}
+
 export function PageEditorForm({
   initialPage,
   initialFields,
+  showSaveSuccess = false,
 }: {
   initialPage?: PaymentPageRow;
   initialFields?: CustomFieldRow[];
+  /** Set when returning from a successful save (`?saved=1`). */
+  showSaveSuccess?: boolean;
 }) {
   const [state, formAction] = useActionState(savePaymentPage, {} as SavePageState);
+
+  useEffect(() => {
+    if (!showSaveSuccess) return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("saved") !== "1") return;
+    url.searchParams.delete("saved");
+    const q = url.searchParams.toString();
+    window.history.replaceState(null, "", `${url.pathname}${q ? `?${q}` : ""}${url.hash}`);
+  }, [showSaveSuccess]);
 
   const [amountMode, setAmountMode] = useState<AmountMode>(
     initialPage?.amount_mode ?? "fixed",
@@ -108,6 +145,11 @@ export function PageEditorForm({
   const locale = useLocale();
   const t = useTranslations("editor");
 
+  const payerEmailSubjectDefault =
+    initialPage?.email_subject?.trim() || PAYER_EMAIL_TEMPLATE_DEFAULT_SUBJECT;
+  const payerEmailBodyDefault =
+    initialPage?.email_body_html?.trim() || PAYER_EMAIL_TEMPLATE_DEFAULT_BODY;
+
   const [fields, setFields] = useState<DraftField[]>(() => {
     if (initialFields?.length) {
       return initialFields.map((f) => ({
@@ -116,6 +158,14 @@ export function PageEditorForm({
         label: f.label,
         field_type: f.field_type,
         optionsText: parseOptions(f.options).join(", "),
+        min_value:
+          f.field_type === "number" && f.min_value != null && String(f.min_value).trim() !== ""
+            ? String(f.min_value)
+            : "",
+        max_value:
+          f.field_type === "number" && f.max_value != null && String(f.max_value).trim() !== ""
+            ? String(f.max_value)
+            : "",
         required: f.required,
         placeholder: f.placeholder ?? "",
         helper_text: f.helper_text ?? "",
@@ -127,22 +177,36 @@ export function PageEditorForm({
   const fieldsJson = useMemo(
     () =>
       JSON.stringify(
-        fields.map((f, i) => ({
-          id: f.id,
-          label: f.label,
-          field_type: f.field_type,
-          options:
-            f.field_type === "dropdown"
-              ? f.optionsText
-                  .split(",")
-                  .map((s) => s.trim())
-                  .filter(Boolean)
-              : [],
-          required: f.required,
-          placeholder: f.placeholder || null,
-          helper_text: f.helper_text || null,
-          sort_order: i,
-        })),
+        fields.map((f, i) => {
+          const numMin =
+            f.field_type === "number" && f.min_value.trim() !== ""
+              ? Number(f.min_value.trim())
+              : null;
+          const numMax =
+            f.field_type === "number" && f.max_value.trim() !== ""
+              ? Number(f.max_value.trim())
+              : null;
+          return {
+            id: f.id,
+            label: f.label,
+            field_type: f.field_type,
+            options:
+              f.field_type === "dropdown"
+                ? f.optionsText
+                    .split(",")
+                    .map((s) => s.trim())
+                    .filter(Boolean)
+                : [],
+            required: f.required,
+            placeholder: f.placeholder || null,
+            helper_text: f.helper_text || null,
+            sort_order: i,
+            min_value:
+              f.field_type === "number" && numMin != null && Number.isFinite(numMin) ? numMin : null,
+            max_value:
+              f.field_type === "number" && numMax != null && Number.isFinite(numMax) ? numMax : null,
+          };
+        }),
       ),
     [fields],
   );
@@ -156,6 +220,8 @@ export function PageEditorForm({
         label: t("newFieldDefault"),
         field_type: "text",
         optionsText: "",
+        min_value: "",
+        max_value: "",
         required: false,
         placeholder: "",
         helper_text: "",
@@ -194,6 +260,52 @@ export function PageEditorForm({
           <AlertDescription>{state.error}</AlertDescription>
         </Alert>
       ) : null}
+
+      {showSaveSuccess ? (
+        <Alert
+          className="border-emerald-200/90 bg-emerald-50/95 text-emerald-950 dark:border-emerald-800/80 dark:bg-emerald-950/45 dark:text-emerald-50"
+          role="status"
+        >
+          <CheckCircle2
+            className="size-4 text-emerald-600 dark:text-emerald-400"
+            strokeWidth={1.75}
+            aria-hidden
+          />
+          <AlertDescription className="text-emerald-900 dark:text-emerald-100 [&_a]:text-emerald-800 dark:[&_a]:text-emerald-200">
+            {t("saveSuccess")}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      <Card className={editorCardShell}>
+        <CardHeader className="border-b border-border/50 bg-muted/20 pb-4">
+          <div className="flex items-start gap-3">
+            <SectionIcon>
+              <Eye className="size-4" strokeWidth={1.5} aria-hidden />
+            </SectionIcon>
+            <div className="min-w-0 space-y-0.5">
+              <CardTitle className="text-lg font-semibold tracking-tight">{t("publicAccessTitle")}</CardTitle>
+              <CardDescription>{t("publicAccessDesc")}</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-4">
+          <label className="flex cursor-pointer items-start gap-3 text-sm text-foreground">
+            <input
+              type="checkbox"
+              name="is_active"
+              defaultChecked={initialPage?.is_active ?? true}
+              className="mt-0.5 size-4 rounded border-input text-primary focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            <span>
+              <span className="block font-medium">{t("isActive")}</span>
+              <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                {t("isActiveHelp")}
+              </span>
+            </span>
+          </label>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2 lg:items-stretch">
         <Card className={editorCardGrid}>
@@ -517,6 +629,38 @@ export function PageEditorForm({
                             />
                           </div>
                         ) : null}
+                        {f.field_type === "number" ? (
+                          <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2">
+                            <div className="space-y-1">
+                              <label className="text-xs font-medium text-muted-foreground">
+                                {t("fieldMin")}
+                              </label>
+                              <Input
+                                value={f.min_value}
+                                onChange={(e) => update(idx, { min_value: e.target.value })}
+                                className={inputSm}
+                                type="number"
+                                step="any"
+                                placeholder="—"
+                                autoComplete="off"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs font-medium text-muted-foreground">
+                                {t("fieldMax")}
+                              </label>
+                              <Input
+                                value={f.max_value}
+                                onChange={(e) => update(idx, { max_value: e.target.value })}
+                                className={inputSm}
+                                type="number"
+                                step="any"
+                                placeholder="—"
+                                autoComplete="off"
+                              />
+                            </div>
+                          </div>
+                        ) : null}
                         <div className="flex items-center gap-2 sm:col-span-2">
                           <input
                             type="checkbox"
@@ -613,7 +757,7 @@ export function PageEditorForm({
               <Input
                 id="email_subject"
                 name="email_subject"
-                defaultValue={initialPage?.email_subject ?? ""}
+                defaultValue={payerEmailSubjectDefault}
                 placeholder="Payment received — {{page_title}}"
                 className={formField}
               />
@@ -624,7 +768,7 @@ export function PageEditorForm({
                 id="email_body_html"
                 name="email_body_html"
                 rows={10}
-                defaultValue={initialPage?.email_body_html ?? ""}
+                defaultValue={payerEmailBodyDefault}
                 placeholder="<p>Hi {{payer_name}}, …</p>"
                 className={cn(formTextarea, "min-h-48 font-mono text-sm")}
               />
@@ -639,19 +783,8 @@ export function PageEditorForm({
           "border-primary/15 bg-primary/[0.03] ring-primary/10",
         )}
       >
-        <CardContent className="flex flex-col gap-4 pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <label className="flex cursor-pointer items-center gap-2.5 text-sm font-medium text-foreground">
-            <input
-              type="checkbox"
-              name="is_active"
-              defaultChecked={initialPage?.is_active ?? true}
-              className="size-4 rounded border-input text-primary focus-visible:ring-2 focus-visible:ring-ring"
-            />
-            {t("isActive")}
-          </label>
-          <Button type="submit" className="w-full rounded-full px-6 font-semibold shadow-sm sm:w-auto">
-            {t("save")}
-          </Button>
+        <CardContent className="flex flex-col gap-4 pt-6 sm:flex-row sm:items-center sm:justify-end">
+          <EditorSubmitButton />
         </CardContent>
       </Card>
     </form>

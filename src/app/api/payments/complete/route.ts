@@ -1,20 +1,13 @@
-import { format } from "date-fns";
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
 import { z } from "zod";
 import { validateAmountForPage, roundMoney } from "@/lib/amounts";
-import {
-  formatCustomFieldsBlock,
-  renderEmailHtml,
-  renderEmailSubject,
-  renderPayeeEmailHtml,
-  renderPayeeEmailSubject,
-} from "@/lib/email-template";
 import { getStripe } from "@/lib/stripe";
+import { getCustomFieldsForPage } from "@/lib/custom-fields-for-page";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createPublicClient } from "@/lib/supabase/public";
 import { validateCustomFieldResponses } from "@/lib/validate-fields";
 import type { CustomFieldRow, PaymentPageRow } from "@/types/qpp";
+import { sendPaymentReceiptEmails } from "./receipt-emails";
 
 const bodySchema = z.object({
   payment_intent_id: z.string().min(1),
@@ -25,38 +18,13 @@ const bodySchema = z.object({
   field_values: z.record(z.string(), z.string()).optional().default({}),
 });
 
-/** Strip accidental wrapping quotes from .env; default to Resend test sender. */
-function normalizeResendFrom(raw: string | undefined): string {
-  const fallback = "onboarding@resend.dev";
-  if (!raw?.trim()) return fallback;
-  let s = raw.trim();
-  if (
-    (s.startsWith('"') && s.endsWith('"')) ||
-    (s.startsWith("'") && s.endsWith("'"))
-  ) {
-    s = s.slice(1, -1).trim();
-  }
-  return s || fallback;
-}
-
-async function resolvePayeeEmail(
-  admin: ReturnType<typeof createAdminClient>,
-  page: PaymentPageRow,
-): Promise<string | null> {
-  const fromPage = page.payee_notification_email?.trim();
-  if (fromPage) {
-    const ok = z.string().email().safeParse(fromPage);
-    return ok.success ? ok.data : null;
-  }
-  const { data, error } = await admin.auth.admin.getUserById(page.created_by);
-  if (error) {
-    console.error("[QPP] payee email: could not load page creator", error.message);
-    return null;
-  }
-  const em = data.user?.email?.trim();
-  if (!em) return null;
-  const ok = z.string().email().safeParse(em);
-  return ok.success ? ok.data : null;
+function readTxEmailFlags(meta: unknown): { payer: boolean; payee: boolean } {
+  if (!meta || typeof meta !== "object") return { payer: false, payee: false };
+  const o = meta as Record<string, unknown>;
+  return {
+    payer: o.payer_receipt_sent === true,
+    payee: o.payee_receipt_sent === true,
+  };
 }
 
 export async function POST(req: Request) {
@@ -122,10 +90,14 @@ export async function POST(req: Request) {
     .from("payment_pages")
     .select("*")
     .eq("slug", slug)
+    .eq("is_active", true)
     .maybeSingle();
 
   if (pageErr || !page || page.id !== pi.metadata.page_id) {
-    return NextResponse.json({ error: "Page not found." }, { status: 404 });
+    return NextResponse.json(
+      { error: "This payment page is not available or was disabled." },
+      { status: 404 },
+    );
   }
 
   const p = page as PaymentPageRow;
@@ -134,13 +106,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: amountErr }, { status: 400 });
   }
 
-  const { data: fieldsRaw } = await pub
-    .from("custom_fields")
-    .select("*")
-    .eq("page_id", p.id)
-    .order("sort_order", { ascending: true });
-
-  const fields = (fieldsRaw ?? []) as CustomFieldRow[];
+  let fields: CustomFieldRow[];
+  try {
+    fields = (await getCustomFieldsForPage(pub, p.id)).data;
+  } catch {
+    return NextResponse.json(
+      { error: "Could not load form fields for validation." },
+      { status: 500 },
+    );
+  }
   const fieldErr = validateCustomFieldResponses(fields, field_values);
   if (fieldErr) {
     return NextResponse.json({ error: fieldErr }, { status: 400 });
@@ -150,12 +124,58 @@ export async function POST(req: Request) {
 
   const { data: existing } = await admin
     .from("transactions")
-    .select("id")
+    .select("id, metadata")
     .eq("stripe_payment_intent_id", payment_intent_id)
     .maybeSingle();
 
+  const mergeAndPersistEmailFlags = async (
+    transactionId: string,
+    baseMeta: Record<string, unknown>,
+    r: { payerSuccess: boolean; payeeSuccess: boolean },
+    sendPayer: boolean,
+    sendPayee: boolean,
+  ) => {
+    const next: Record<string, unknown> = { ...baseMeta, slug: p.slug };
+    if (sendPayer && r.payerSuccess) next.payer_receipt_sent = true;
+    if (sendPayee && r.payeeSuccess) next.payee_receipt_sent = true;
+    const { error } = await admin.from("transactions").update({ metadata: next }).eq("id", transactionId);
+    if (error) {
+      console.error("[QPP] could not update transaction email metadata", error.message);
+    }
+  };
+
   if (existing?.id) {
-    return NextResponse.json({ ok: true, transaction_id: existing.id, duplicate: true });
+    const sent = readTxEmailFlags(existing.metadata);
+    // Payee: we only skip resend if a previous run recorded it; first run may have had no payee address.
+    const sendPayer = !sent.payer;
+    const sendPayee = !sent.payee;
+    if (!sendPayer && !sendPayee) {
+      return NextResponse.json({ ok: true, transaction_id: existing.id, duplicate: true });
+    }
+    const r = await sendPaymentReceiptEmails({
+      admin,
+      page: p,
+      fields,
+      fieldValues: field_values,
+      transactionId: existing.id,
+      amountUsd: piAmount,
+      payerEmail: payer_email,
+      payerName: payer_name,
+      sendPayer,
+      sendPayee,
+    });
+    const prev =
+      existing.metadata && typeof existing.metadata === "object"
+        ? (existing.metadata as Record<string, unknown>)
+        : {};
+    await mergeAndPersistEmailFlags(existing.id, prev, r, sendPayer, sendPayee);
+    return NextResponse.json({
+      ok: true,
+      transaction_id: existing.id,
+      duplicate: true,
+      receiptRetry: true,
+      emails: { payer: r.payerSuccess, payee: r.payeeSuccess },
+    });
   }
 
   let paymentMethodType: string | null = null;
@@ -208,98 +228,30 @@ export async function POST(req: Request) {
     if (respErr) console.error(respErr);
   }
 
-  const resendKey = process.env.RESEND_API_KEY?.trim();
-  const fromRaw = process.env.RESEND_FROM_EMAIL?.trim();
-  /** Resend: use plain onboarding@resend.dev for tests, or verify your domain and use e.g. pay@yourdomain.com */
-  const from = normalizeResendFrom(fromRaw);
-  if (resendKey) {
-    try {
-      const resend = new Resend(resendKey);
-      const dateFormatted = format(new Date(), "PPpp");
-      const amountFormatted = new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-      }).format(piAmount);
-      const customHtml = formatCustomFieldsBlock(fields, field_values);
-      const html = renderEmailHtml({
-        template: p.email_body_html,
-        payerName: payer_name,
-        amountFormatted,
-        transactionId: tx.id,
-        dateFormatted,
-        pageTitle: p.title,
-        customFieldsHtml: customHtml,
-      });
-      const subject = renderEmailSubject(p.email_subject, p.title);
-      const { data: sent, error: sendErr } = await resend.emails.send({
-        from,
-        to: payer_email,
-        subject,
-        html,
-      });
-      if (sendErr) {
-        console.error(
-          "[QPP] Resend rejected email:",
-          sendErr.name,
-          sendErr.message,
-          "status:",
-          sendErr.statusCode,
-          "| from:",
-          from,
-          "| to:",
-          payer_email,
-        );
-      } else if (sent?.id) {
-        console.info("[QPP] Resend payer email id:", sent.id);
-      }
+  const emailFlags = readTxEmailFlags({ slug: p.slug });
+  const r = await sendPaymentReceiptEmails({
+    admin,
+    page: p,
+    fields,
+    fieldValues: field_values,
+    transactionId: tx.id,
+    amountUsd: piAmount,
+    payerEmail: payer_email,
+    payerName: payer_name,
+    sendPayer: !emailFlags.payer,
+    sendPayee: !emailFlags.payee,
+  });
+  await mergeAndPersistEmailFlags(
+    tx.id,
+    { slug: p.slug },
+    r,
+    !emailFlags.payer,
+    !emailFlags.payee,
+  );
 
-      const payeeEmail = await resolvePayeeEmail(admin, p);
-      if (payeeEmail && payeeEmail.toLowerCase() !== payer_email.toLowerCase()) {
-        const payeeHtml = renderPayeeEmailHtml({
-          template: p.email_payee_body_html,
-          payerName: payer_name,
-          payerEmail: payer_email,
-          amountFormatted,
-          transactionId: tx.id,
-          dateFormatted,
-          pageTitle: p.title,
-          customFieldsHtml: customHtml,
-        });
-        const payeeSubject = renderPayeeEmailSubject(
-          p.email_payee_subject,
-          p.title,
-          payer_name,
-          payer_email,
-          amountFormatted,
-          tx.id,
-          dateFormatted,
-        );
-        const { data: payeeSent, error: payeeErr } = await resend.emails.send({
-          from,
-          to: payeeEmail,
-          subject: payeeSubject,
-          html: payeeHtml,
-        });
-        if (payeeErr) {
-          console.error(
-            "[QPP] Resend rejected payee email:",
-            payeeErr.name,
-            payeeErr.message,
-            "status:",
-            payeeErr.statusCode,
-            "| to:",
-            payeeEmail,
-          );
-        } else if (payeeSent?.id) {
-          console.info("[QPP] Resend payee email id:", payeeSent.id);
-        }
-      } else if (!payeeEmail) {
-        console.warn("[QPP] No payee notification email; set one on the page or ensure the creator has an email.");
-      }
-    } catch (e) {
-      console.error("[QPP] Resend exception", e);
-    }
-  }
-
-  return NextResponse.json({ ok: true, transaction_id: tx.id });
+  return NextResponse.json({
+    ok: true,
+    transaction_id: tx.id,
+    emails: { payer: r.payerSuccess, payee: r.payeeSuccess },
+  });
 }

@@ -3,12 +3,15 @@ import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Sparkles } from "lucide-react";
 import { BrandAccentBar } from "@/components/pay/BrandAccentBar";
+import { PayPageInactive } from "@/components/pay/PayPageInactive";
 import { PayPageBrandBackdrop } from "@/components/pay/PayPageBrandBackdrop";
 import { PayTrustPills } from "@/components/pay/PayTrustPills";
 import { PaymentCheckout } from "@/components/payment/PaymentCheckout";
 import { Card, CardContent } from "@/components/ui/card";
+import { getCustomFieldsForPage } from "@/lib/custom-fields-for-page";
+import { loadPublicPaymentPage } from "@/lib/load-public-payment-page";
 import { createPublicClient } from "@/lib/supabase/public";
-import type { CustomFieldRow, PaymentPageRow } from "@/types/qpp";
+import type { CustomFieldRow } from "@/types/qpp";
 import { getBrandPair } from "@/lib/brand-color-pair";
 import { brandGlassPanelBorder, payShellCssVars } from "@/lib/brand-gradient-theme";
 import { cn } from "@/lib/utils";
@@ -19,45 +22,53 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("pay");
-  const supabase = createPublicClient();
-  const { data } = await supabase
-    .from("payment_pages")
-    .select("title, subtitle")
-    .eq("slug", slug)
-    .maybeSingle();
-  if (!data) {
-    return { title: t("metadataTitle") };
+  const loaded = await loadPublicPaymentPage(slug);
+  if (loaded.kind === "active") {
+    const p = loaded.page;
+    return {
+      title: `${p.title} — ${t("metadataPaySuffix")}`,
+      description: p.subtitle ?? t("metadataDescription"),
+    };
   }
-  const p = data as Pick<PaymentPageRow, "title" | "subtitle">;
-  return {
-    title: `${p.title} — ${t("metadataPaySuffix")}`,
-    description: p.subtitle ?? t("metadataDescription"),
-  };
+  if (loaded.kind === "inactive") {
+    return {
+      title: t("inactiveMetaTitle", { title: loaded.page.title }),
+      description: t("inactiveMetaDescription"),
+    };
+  }
+  return { title: t("metadataTitle") };
 }
 
 export default async function PublicPayPage({ params }: Props) {
   const { slug, locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("pay");
+  const loaded = await loadPublicPaymentPage(slug);
+  if (loaded.kind === "missing" || loaded.kind === "error") notFound();
+  if (loaded.kind === "inactive") {
+    const r = loaded.page;
+    return (
+      <PayPageInactive
+        locale={locale}
+        title={r.title}
+        subtitle={r.subtitle}
+        brand_color={r.brand_color}
+        brand_color_secondary={r.brand_color_secondary}
+        logo_url={r.logo_url}
+      />
+    );
+  }
+
+  const p = loaded.page;
   const supabase = createPublicClient();
 
-  const { data: page, error } = await supabase
-    .from("payment_pages")
-    .select("*")
-    .eq("slug", slug)
-    .maybeSingle();
-
-  if (error || !page) notFound();
-
-  const p = page as PaymentPageRow;
-
-  const { data: fieldsRaw } = await supabase
-    .from("custom_fields")
-    .select("*")
-    .eq("page_id", p.id)
-    .order("sort_order", { ascending: true });
-
-  const fields = (fieldsRaw ?? []) as CustomFieldRow[];
+  let fields: CustomFieldRow[];
+  try {
+    const r = await getCustomFieldsForPage(supabase, p.id);
+    fields = r.data;
+  } catch {
+    notFound();
+  }
 
   const showBrandingColumn = Boolean(p.logo_url || p.trust_panel);
   const { primary: brandPrimary, secondary: brandSecondary } = getBrandPair(p);

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { validateAmountForPage } from "@/lib/amounts";
 import { getStripe } from "@/lib/stripe";
 import { PAYMENT_PAGE_PUBLIC_SELECT } from "@/lib/payment-page-public-select";
+import { getCustomFieldsForPage } from "@/lib/custom-fields-for-page";
 import { createPublicClient } from "@/lib/supabase/public";
 import { validateCustomFieldResponses } from "@/lib/validate-fields";
 import type { CustomFieldRow, PublicPaymentPageRow } from "@/types/qpp";
@@ -35,6 +36,7 @@ export async function POST(req: Request) {
     .from("payment_pages")
     .select(PAYMENT_PAGE_PUBLIC_SELECT)
     .eq("slug", slug)
+    .eq("is_active", true)
     .maybeSingle();
 
   if (pageErr || !page) {
@@ -47,17 +49,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: amountErr }, { status: 400 });
   }
 
-  const { data: fieldsRaw, error: fieldsErr } = await supabase
-    .from("custom_fields")
-    .select("*")
-    .eq("page_id", p.id)
-    .order("sort_order", { ascending: true });
-
-  if (fieldsErr) {
+  let fields: CustomFieldRow[];
+  try {
+    fields = (await getCustomFieldsForPage(supabase, p.id)).data;
+  } catch {
     return NextResponse.json({ error: "Could not load form fields." }, { status: 500 });
   }
-
-  const fields = (fieldsRaw ?? []) as CustomFieldRow[];
   if (fields.length > 10) {
     return NextResponse.json({ error: "Page has too many custom fields." }, { status: 400 });
   }

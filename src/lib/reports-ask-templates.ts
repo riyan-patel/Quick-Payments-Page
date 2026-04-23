@@ -644,6 +644,85 @@ LIMIT 1;`;
       result: { kind: "scalar", label: "Transactions (matched page)", value: String(c.length), sql },
     };
   },
+  /**
+   * Unique payers and payment count for succeeded rows whose page title contains `page_contains`.
+   * If year+month are set, scope to that local month; otherwise all loaded rows in this request (for that status).
+   */
+  page_title_fuzzy_people_succeeded_stats: (rows, s, ctx) => {
+    const raw = s.page_contains?.trim();
+    if (!raw) return null;
+    const needle = raw.toLowerCase();
+    const st = s.status_scope ?? "succeeded";
+    const scopedAll =
+      s.year != null && s.month != null
+        ? (() => {
+            const { startMs: a, endExMs: b } = localMonthBoundsMs(ctx.timeZone, s.year, s.month);
+            return filterRows(rows, a, b, st);
+          })()
+        : rows.filter((r) => matchStatus(r, st));
+    const f = scopedAll.filter((r) => pageTitle(r).toLowerCase().includes(needle));
+    const set = new Set(
+      f.map((r) => (r.payer_email ?? r.payer_name ?? r.id + r.created_at).toLowerCase()),
+    );
+    const rev = sumAmount(f);
+    const scopeHint =
+      s.year != null && s.month != null
+        ? `${s.year}-${pad2(s.month)} local month`
+        : "all rows loaded in this request";
+    const sql = `-- page title ILIKE %${raw}% (status ${st}; scope: ${scopeHint} in app)`;
+    return {
+      sql,
+      result: {
+        kind: "table",
+        columns: [
+          "unique payers (best-effort)",
+          "succeeded payments",
+          "revenue (USD)",
+        ],
+        rows: [[set.size, f.length, rev]],
+        sql,
+      },
+    };
+  },
+  /**
+   * Succeeded payment count (and revenue) for payers whose name matches `payer_name_contains` AND
+   * page title matches `page_contains` (case-insensitive). Scoped like page_title_fuzzy_people.
+   */
+  payer_name_page_purchases_loaded: (rows, s, ctx) => {
+    const nameRaw = s.payer_name_contains?.trim();
+    const pageRaw = s.page_contains?.trim();
+    if (!nameRaw || !pageRaw) return null;
+    const nameNeedle = nameRaw.toLowerCase();
+    const pageNeedle = pageRaw.toLowerCase();
+    const st = s.status_scope ?? "succeeded";
+    const scopedAll =
+      s.year != null && s.month != null
+        ? (() => {
+            const { startMs: a, endExMs: b } = localMonthBoundsMs(ctx.timeZone, s.year, s.month);
+            return filterRows(rows, a, b, st);
+          })()
+        : rows.filter((r) => matchStatus(r, st));
+    const f = scopedAll.filter(
+      (r) =>
+        (r.payer_name ?? "").toLowerCase().includes(nameNeedle) &&
+        pageTitle(r).toLowerCase().includes(pageNeedle),
+    );
+    const rev = sumAmount(f);
+    const scopeHint =
+      s.year != null && s.month != null
+        ? `${s.year}-${pad2(s.month)} local month`
+        : "all rows loaded in this request";
+    const sql = `-- payer name ILIKE %${nameRaw}%, page title ILIKE %${pageRaw}% (status ${st}; scope: ${scopeHint} in app)`;
+    return {
+      sql,
+      result: {
+        kind: "table",
+        columns: ["succeeded purchases (count)", "revenue (USD)"],
+        rows: [[f.length, rev]],
+        sql,
+      },
+    };
+  },
   top_page_tx_count_month: (rows, s, ctx) => {
     if (s.year == null || s.month == null) return null;
     const { startMs: a, endExMs: b } = localMonthBoundsMs(ctx.timeZone, s.year, s.month);
@@ -1160,6 +1239,16 @@ export const REPORT_ASK_CATALOG: {
   { id: "top_payer_revenue_month", title: "Payer with highest total spend in a month", sqlTemplate: "GROUP BY email/name" },
   { id: "best_day_revenue_month", title: "Local calendar day with highest revenue in a month", sqlTemplate: "GROUP BY day" },
   { id: "count_tx_page_title_month", title: "Transaction count for pages matching a title fragment (month)", sqlTemplate: "COUNT + filter" },
+  {
+    id: "page_title_fuzzy_people_succeeded_stats",
+    title: "How many people purchased a page (title contains text): unique payers, payment count, revenue; full loaded data or a local month",
+    sqlTemplate: "COUNT DISTINCT + COUNT + SUM; ILIKE on page title",
+  },
+  {
+    id: "payer_name_page_purchases_loaded",
+    title: "How many times a payer (name) bought a page (title substrings): count + revenue; loaded data or a local month",
+    sqlTemplate: "FILTER payer_name + page title; COUNT + SUM",
+  },
   { id: "top_page_tx_count_month", title: "Page with the most successful transactions in a month", sqlTemplate: "ORDER BY count" },
   { id: "ytd_revenue", title: "Year-to-date revenue (through today if current year)", sqlTemplate: "SUM YTD" },
   { id: "prior_month_totals", title: "Total revenue in the previous full calendar month", sqlTemplate: "SUM last month" },

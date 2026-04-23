@@ -1,39 +1,50 @@
 import { notFound } from "next/navigation";
 import { setRequestLocale } from "next-intl/server";
 import { BrandAccentBar } from "@/components/pay/BrandAccentBar";
+import { PayPageInactive } from "@/components/pay/PayPageInactive";
 import { PayPageBrandBackdrop } from "@/components/pay/PayPageBrandBackdrop";
 import { PayTrustPills } from "@/components/pay/PayTrustPills";
 import { PaymentCheckout } from "@/components/payment/PaymentCheckout";
+import { getCustomFieldsForPage } from "@/lib/custom-fields-for-page";
+import { loadPublicPaymentPage } from "@/lib/load-public-payment-page";
 import { createPublicClient } from "@/lib/supabase/public";
 import { getBrandPair } from "@/lib/brand-color-pair";
 import { brandGlassPanelBorder, payShellCssVars } from "@/lib/brand-gradient-theme";
-import type { CustomFieldRow, PaymentPageRow } from "@/types/qpp";
+import type { CustomFieldRow } from "@/types/qpp";
 
 type Props = { params: Promise<{ slug: string; locale: string }> };
 
 export default async function EmbedPayPage({ params }: Props) {
   const { slug, locale } = await params;
   setRequestLocale(locale);
+  const loaded = await loadPublicPaymentPage(slug);
+  if (loaded.kind === "missing" || loaded.kind === "error") notFound();
+  if (loaded.kind === "inactive") {
+    const r = loaded.page;
+    return (
+      <PayPageInactive
+        locale={locale}
+        title={r.title}
+        subtitle={r.subtitle}
+        brand_color={r.brand_color}
+        brand_color_secondary={r.brand_color_secondary}
+        logo_url={r.logo_url}
+        embed
+      />
+    );
+  }
+
+  const p = loaded.page;
   const supabase = createPublicClient();
-
-  const { data: page, error } = await supabase
-    .from("payment_pages")
-    .select("*")
-    .eq("slug", slug)
-    .maybeSingle();
-
-  if (error || !page) notFound();
-
-  const p = page as PaymentPageRow;
   const { primary: brandPrimary, secondary: brandSecondary } = getBrandPair(p);
 
-  const { data: fieldsRaw } = await supabase
-    .from("custom_fields")
-    .select("*")
-    .eq("page_id", p.id)
-    .order("sort_order", { ascending: true });
-
-  const fields = (fieldsRaw ?? []) as CustomFieldRow[];
+  let fields: CustomFieldRow[];
+  try {
+    const r = await getCustomFieldsForPage(supabase, p.id);
+    fields = r.data;
+  } catch {
+    notFound();
+  }
 
   return (
     <main

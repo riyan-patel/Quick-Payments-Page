@@ -29,7 +29,31 @@ export type PaymentPageRow = {
   is_active: boolean;
   email_subject: string | null;
   email_body_html: string | null;
+  /** Optional: receive payee notification here; if null, the page creator’s account email is used. */
+  payee_notification_email: string | null;
+  email_payee_subject: string | null;
+  email_payee_body_html: string | null;
 };
+
+/** Subset of `payment_pages` exposed on public /pay and /embed (see `PAYMENT_PAGE_PUBLIC_SELECT`). */
+export type PublicPaymentPageRow = Pick<
+  PaymentPageRow,
+  | "id"
+  | "slug"
+  | "title"
+  | "subtitle"
+  | "header_message"
+  | "trust_panel"
+  | "logo_url"
+  | "brand_color"
+  | "brand_color_secondary"
+  | "amount_mode"
+  | "fixed_amount"
+  | "min_amount"
+  | "max_amount"
+  | "gl_codes"
+  | "is_active"
+>;
 
 export type CustomFieldRow = {
   id: string;

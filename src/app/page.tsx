@@ -66,10 +66,11 @@ export default function HomePage() {
               href="/signup"
               className={cn(
                 buttonVariants({ variant: "outline", size: "lg" }),
-                "h-12 rounded-full border-foreground/12 bg-card/80 px-8 text-base no-underline shadow-sm backdrop-blur-sm",
+                "group h-12 rounded-full border-foreground/12 bg-card/80 px-8 text-base no-underline shadow-sm backdrop-blur-sm",
               )}
             >
               Create account
+              <ArrowRight className="ms-0.5 size-4 transition group-hover:translate-x-0.5" />
             </Link>
         </div>
 

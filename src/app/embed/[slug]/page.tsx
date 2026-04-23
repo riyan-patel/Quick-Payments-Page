@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
 import { PayTrustPills } from "@/components/pay/PayTrustPills";
 import { PaymentCheckout } from "@/components/payment/PaymentCheckout";
+import { PAYMENT_PAGE_PUBLIC_SELECT } from "@/lib/payment-page-public-select";
 import { createPublicClient } from "@/lib/supabase/public";
 import { getBrandPair } from "@/lib/brand-color-pair";
 import { brandStripGradientStyle, payPageBackgroundStyle, payShellCssVars } from "@/lib/brand-gradient-theme";
-import type { CustomFieldRow, PaymentPageRow } from "@/types/qpp";
+import type { CustomFieldRow, PublicPaymentPageRow } from "@/types/qpp";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -14,13 +15,13 @@ export default async function EmbedPayPage({ params }: Props) {
 
   const { data: page, error } = await supabase
     .from("payment_pages")
-    .select("*")
+    .select(PAYMENT_PAGE_PUBLIC_SELECT)
     .eq("slug", slug)
     .maybeSingle();
 
   if (error || !page) notFound();
 
-  const p = page as PaymentPageRow;
+  const p = page as unknown as PublicPaymentPageRow;
   const { primary: brandPrimary, secondary: brandSecondary } = getBrandPair(p);
 
   const { data: fieldsRaw } = await supabase

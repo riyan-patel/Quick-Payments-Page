@@ -34,6 +34,16 @@ const VARIABLES = [
   "{{custom_fields}}",
 ];
 
+const PAYEE_VARIABLES = [
+  "{{payer_name}}",
+  "{{payer_email}}",
+  "{{amount}}",
+  "{{transaction_id}}",
+  "{{date}}",
+  "{{page_title}}",
+  "{{custom_fields}}",
+];
+
 const inputSm = "h-7 min-h-7 py-1 text-[0.8rem]";
 
 /** Main editor fields — rounded, soft shadow (nested field rows still use `inputSm`). */
@@ -508,15 +518,18 @@ export function PageEditorForm({
         <CardHeader>
           <CardTitle>Confirmation email (Resend)</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Variables:{" "}
-            {VARIABLES.map((v) => (
-              <code key={v} className="mr-1 rounded bg-muted px-1 text-xs">
-                {v}
-              </code>
-            ))}
-          </p>
+        <CardContent className="space-y-6">
+          <div>
+            <p className="mb-1 text-sm font-medium text-foreground">To the payer</p>
+            <p className="text-sm text-muted-foreground">
+              Variables:{" "}
+              {VARIABLES.map((v) => (
+                <code key={v} className="mr-1 rounded bg-muted px-1 text-xs">
+                  {v}
+                </code>
+              ))}
+            </p>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="email_subject">Subject</Label>
             <Input
@@ -536,6 +549,54 @@ export function PageEditorForm({
               defaultValue={initialPage?.email_body_html ?? ""}
               placeholder="<p>Hi {{payer_name}}, …</p>"
               className={cn(formTextarea, "min-h-48 font-mono text-sm")}
+            />
+          </div>
+
+          <div className="border-t border-border pt-4">
+            <p className="mb-1 text-sm font-medium text-foreground">To you (payee)</p>
+            <p className="text-sm text-muted-foreground">
+              If you leave the address blank, we send the payee copy to the account email you use to sign in. Variables:{" "}
+              {PAYEE_VARIABLES.map((v) => (
+                <code key={v} className="mr-1 rounded bg-muted px-1 text-xs">
+                  {v}
+                </code>
+              ))}
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="payee_notification_email">Payee notification email (optional)</Label>
+            <Input
+              id="payee_notification_email"
+              name="payee_notification_email"
+              type="email"
+              autoComplete="off"
+              defaultValue={initialPage?.payee_notification_email ?? ""}
+              placeholder="billing@yoursite.com"
+              className={formField}
+            />
+            <p className="text-xs text-muted-foreground">
+              Override to send notifications to a team inbox. Leave empty to use your sign-in email.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="email_payee_subject">Payee subject</Label>
+            <Input
+              id="email_payee_subject"
+              name="email_payee_subject"
+              defaultValue={initialPage?.email_payee_subject ?? ""}
+              placeholder="New payment — {{page_title}}"
+              className={formField}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="email_payee_body_html">Payee HTML body</Label>
+            <Textarea
+              id="email_payee_body_html"
+              name="email_payee_body_html"
+              rows={8}
+              defaultValue={initialPage?.email_payee_body_html ?? ""}
+              placeholder="<p>{{payer_name}} ({{payer_email}}) paid {{amount}} …</p>"
+              className={cn(formTextarea, "min-h-40 font-mono text-sm")}
             />
           </div>
         </CardContent>

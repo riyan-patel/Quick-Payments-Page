@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { validateAmountForPage } from "@/lib/amounts";
 import { getStripe } from "@/lib/stripe";
+import { PAYMENT_PAGE_PUBLIC_SELECT } from "@/lib/payment-page-public-select";
 import { createPublicClient } from "@/lib/supabase/public";
 import { validateCustomFieldResponses } from "@/lib/validate-fields";
-import type { CustomFieldRow, PaymentPageRow } from "@/types/qpp";
+import type { CustomFieldRow, PublicPaymentPageRow } from "@/types/qpp";
 
 const bodySchema = z.object({
   slug: z.string().min(1),
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
   const supabase = createPublicClient();
   const { data: page, error: pageErr } = await supabase
     .from("payment_pages")
-    .select("*")
+    .select(PAYMENT_PAGE_PUBLIC_SELECT)
     .eq("slug", slug)
     .maybeSingle();
 
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Payment page not found." }, { status: 404 });
   }
 
-  const p = page as PaymentPageRow;
+  const p = page as unknown as PublicPaymentPageRow;
   const amountErr = validateAmountForPage(p, amount);
   if (amountErr) {
     return NextResponse.json({ error: amountErr }, { status: 400 });

@@ -4,8 +4,9 @@ import { Sparkles } from "lucide-react";
 import { PayTrustPills } from "@/components/pay/PayTrustPills";
 import { PaymentCheckout } from "@/components/payment/PaymentCheckout";
 import { Card, CardContent } from "@/components/ui/card";
+import { PAYMENT_PAGE_PUBLIC_SELECT } from "@/lib/payment-page-public-select";
 import { createPublicClient } from "@/lib/supabase/public";
-import type { CustomFieldRow, PaymentPageRow } from "@/types/qpp";
+import type { CustomFieldRow, PublicPaymentPageRow } from "@/types/qpp";
 import { getBrandPair } from "@/lib/brand-color-pair";
 import {
   brandGlowOrbs,
@@ -27,7 +28,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .eq("slug", slug)
     .maybeSingle();
   if (!data) return { title: "Payment page" };
-  const p = data as Pick<PaymentPageRow, "title" | "subtitle">;
+  const p = data as Pick<PublicPaymentPageRow, "title" | "subtitle">;
   return {
     title: `${p.title} — Pay`,
     description: p.subtitle ?? "Secure payment",
@@ -40,13 +41,13 @@ export default async function PublicPayPage({ params }: Props) {
 
   const { data: page, error } = await supabase
     .from("payment_pages")
-    .select("*")
+    .select(PAYMENT_PAGE_PUBLIC_SELECT)
     .eq("slug", slug)
     .maybeSingle();
 
   if (error || !page) notFound();
 
-  const p = page as PaymentPageRow;
+  const p = page as unknown as PublicPaymentPageRow;
 
   const { data: fieldsRaw } = await supabase
     .from("custom_fields")

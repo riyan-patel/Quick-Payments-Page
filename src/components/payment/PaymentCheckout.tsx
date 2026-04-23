@@ -9,7 +9,7 @@ import {
 import { loadStripe, type StripeElementsOptions } from "@stripe/stripe-js";
 import { useCallback, useMemo, useState } from "react";
 import { validateCustomFieldResponses } from "@/lib/validate-fields";
-import type { AmountMode, CustomFieldRow, PaymentPageRow } from "@/types/qpp";
+import type { AmountMode, CustomFieldRow, PublicPaymentPageRow } from "@/types/qpp";
 import { CustomFieldInputs } from "./CustomFieldInputs";
 import { toNumber, validateAmountForPage } from "@/lib/amounts";
 import { getBrandPair } from "@/lib/brand-color-pair";
@@ -33,7 +33,7 @@ function getStripe() {
 }
 
 type Props = {
-  page: PaymentPageRow;
+  page: PublicPaymentPageRow;
   fields: CustomFieldRow[];
   embed?: boolean;
 };
@@ -47,7 +47,7 @@ function CheckoutForm({
   fieldValues,
   onFatal,
 }: {
-  page: PaymentPageRow;
+  page: PublicPaymentPageRow;
   slug: string;
   amount: number;
   payerEmail: string;

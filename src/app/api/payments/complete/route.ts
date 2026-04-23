@@ -7,6 +7,8 @@ import {
   formatCustomFieldsBlock,
   renderEmailHtml,
   renderEmailSubject,
+  renderPayeeEmailHtml,
+  renderPayeeEmailSubject,
 } from "@/lib/email-template";
 import { getStripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -35,6 +37,26 @@ function normalizeResendFrom(raw: string | undefined): string {
     s = s.slice(1, -1).trim();
   }
   return s || fallback;
+}
+
+async function resolvePayeeEmail(
+  admin: ReturnType<typeof createAdminClient>,
+  page: PaymentPageRow,
+): Promise<string | null> {
+  const fromPage = page.payee_notification_email?.trim();
+  if (fromPage) {
+    const ok = z.string().email().safeParse(fromPage);
+    return ok.success ? ok.data : null;
+  }
+  const { data, error } = await admin.auth.admin.getUserById(page.created_by);
+  if (error) {
+    console.error("[QPP] payee email: could not load page creator", error.message);
+    return null;
+  }
+  const em = data.user?.email?.trim();
+  if (!em) return null;
+  const ok = z.string().email().safeParse(em);
+  return ok.success ? ok.data : null;
 }
 
 export async function POST(req: Request) {
@@ -228,7 +250,51 @@ export async function POST(req: Request) {
           payer_email,
         );
       } else if (sent?.id) {
-        console.info("[QPP] Resend email id:", sent.id);
+        console.info("[QPP] Resend payer email id:", sent.id);
+      }
+
+      const payeeEmail = await resolvePayeeEmail(admin, p);
+      if (payeeEmail && payeeEmail.toLowerCase() !== payer_email.toLowerCase()) {
+        const payeeHtml = renderPayeeEmailHtml({
+          template: p.email_payee_body_html,
+          payerName: payer_name,
+          payerEmail: payer_email,
+          amountFormatted,
+          transactionId: tx.id,
+          dateFormatted,
+          pageTitle: p.title,
+          customFieldsHtml: customHtml,
+        });
+        const payeeSubject = renderPayeeEmailSubject(
+          p.email_payee_subject,
+          p.title,
+          payer_name,
+          payer_email,
+          amountFormatted,
+          tx.id,
+          dateFormatted,
+        );
+        const { data: payeeSent, error: payeeErr } = await resend.emails.send({
+          from,
+          to: payeeEmail,
+          subject: payeeSubject,
+          html: payeeHtml,
+        });
+        if (payeeErr) {
+          console.error(
+            "[QPP] Resend rejected payee email:",
+            payeeErr.name,
+            payeeErr.message,
+            "status:",
+            payeeErr.statusCode,
+            "| to:",
+            payeeEmail,
+          );
+        } else if (payeeSent?.id) {
+          console.info("[QPP] Resend payee email id:", payeeSent.id);
+        }
+      } else if (!payeeEmail) {
+        console.warn("[QPP] No payee notification email; set one on the page or ensure the creator has an email.");
       }
     } catch (e) {
       console.error("[QPP] Resend exception", e);

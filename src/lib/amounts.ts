@@ -1,4 +1,10 @@
-import type { AmountMode, PaymentPageRow } from "@/types/qpp";
+import type { AmountMode, PublicPaymentPageRow } from "@/types/qpp";
+
+/** Amount rules from a payment page (shared by full and public page rows). */
+type AmountConfig = Pick<
+  PublicPaymentPageRow,
+  "amount_mode" | "fixed_amount" | "min_amount" | "max_amount"
+>;
 
 export function toNumber(v: string | null | undefined): number | null {
   if (v == null || v === "") return null;
@@ -10,7 +16,7 @@ export function roundMoney(n: number) {
   return Math.round(n * 100) / 100;
 }
 
-export function validateAmountForPage(page: PaymentPageRow, amount: number): string | null {
+export function validateAmountForPage(page: AmountConfig, amount: number): string | null {
   const a = roundMoney(amount);
   if (a <= 0 || a > 999_999.99) return "Enter a valid payment amount.";
 

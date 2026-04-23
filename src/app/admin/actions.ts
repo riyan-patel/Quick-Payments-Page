@@ -55,6 +55,16 @@ const pageSchema = z.object({
   is_active: z.boolean(),
   email_subject: z.string().max(200).optional().nullable(),
   email_body_html: z.string().max(20000).optional().nullable(),
+  payee_notification_email: z
+    .string()
+    .max(320)
+    .transform((s) => s.trim() || null)
+    .refine(
+      (s) => s == null || z.string().email().safeParse(s).success,
+      "Invalid payee notification email.",
+    ),
+  email_payee_subject: z.string().max(200).optional().nullable(),
+  email_payee_body_html: z.string().max(20000).optional().nullable(),
   fields: z.array(fieldSchema).max(10),
 });
 
@@ -101,6 +111,9 @@ type PaymentPageUpsert = {
   is_active: boolean;
   email_subject: string | null;
   email_body_html: string | null;
+  payee_notification_email: string | null;
+  email_payee_subject: string | null;
+  email_payee_body_html: string | null;
 };
 
 function validateAmounts(
@@ -143,6 +156,9 @@ export async function savePaymentPage(_prev: SavePageState, formData: FormData):
     is_active: formData.get("is_active") === "on",
     email_subject: (formData.get("email_subject") as string) || null,
     email_body_html: (formData.get("email_body_html") as string) || null,
+    payee_notification_email: (formData.get("payee_notification_email") as string) ?? "",
+    email_payee_subject: (formData.get("email_payee_subject") as string) || null,
+    email_payee_body_html: (formData.get("email_payee_body_html") as string) || null,
     fields: JSON.parse((formData.get("fields_json") as string) || "[]") as unknown[],
   };
 
@@ -190,6 +206,9 @@ export async function savePaymentPage(_prev: SavePageState, formData: FormData):
     is_active: v.is_active,
     email_subject: v.email_subject ?? null,
     email_body_html: v.email_body_html ?? null,
+    payee_notification_email: v.payee_notification_email,
+    email_payee_subject: v.email_payee_subject ?? null,
+    email_payee_body_html: v.email_payee_body_html ?? null,
   };
 
   let pageId = v.id;

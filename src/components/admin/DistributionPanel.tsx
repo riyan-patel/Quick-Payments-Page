@@ -1,6 +1,7 @@
 "use client";
 
 import QRCode from "react-qr-code";
+import { useTranslations } from "next-intl";
 import { useCallback, useState } from "react";
 import { Copy, QrCode, Share2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -17,13 +18,13 @@ type Props = {
 };
 
 export function DistributionPanel(props: Props) {
+  const t = useTranslations("distribution");
   if (!props.appUrl.trim()) {
     return (
       <Alert>
-        <AlertTitle>Distribution</AlertTitle>
+        <AlertTitle>{t("title")}</AlertTitle>
         <AlertDescription>
-          Set <code className="rounded bg-muted px-1">NEXT_PUBLIC_APP_URL</code> in your environment
-          (e.g. https://your-app.vercel.app) to generate share links, iframe HTML, and QR codes.
+          {t("envMissing")}
         </AlertDescription>
       </Alert>
     );
@@ -33,6 +34,7 @@ export function DistributionPanel(props: Props) {
 }
 
 function DistributionPanelContent({ slug, title, appUrl }: Props) {
+  const t = useTranslations("distribution");
   const base = appUrl.replace(/\/$/, "");
   const payUrl = `${base}/pay/${slug}`;
   const embedUrl = `${base}/embed/${slug}`;
@@ -71,16 +73,16 @@ function DistributionPanelContent({ slug, title, appUrl }: Props) {
             <Share2 className="size-5" strokeWidth={1.5} aria-hidden />
           </div>
           <div>
-            <CardTitle className="text-lg">Distribution</CardTitle>
+            <CardTitle className="text-lg">{t("title")}</CardTitle>
             <CardDescription>
-              Share the hosted link, drop in an embed, or print a QR that opens checkout.
+              {t("description")}
             </CardDescription>
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-2">
-          <Label htmlFor={`pay-url-${slug}`}>Public payment URL</Label>
+          <Label htmlFor={`pay-url-${slug}`}>{t("publicUrl")}</Label>
           <div className="flex flex-wrap gap-2">
             <Input
               id={`pay-url-${slug}`}
@@ -94,18 +96,18 @@ function DistributionPanelContent({ slug, title, appUrl }: Props) {
               onClick={() => void copy("url", payUrl)}
             >
               <Copy className="size-3.5" aria-hidden />
-              Copy URL
+              {t("copyUrl")}
             </Button>
           </div>
           {copied === "url" ? (
             <p role="status" className="text-xs text-primary">
-              Copied link to clipboard.
+              {t("copiedUrl")}
             </p>
           ) : null}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor={`iframe-${slug}`}>Embeddable iframe</Label>
+          <Label htmlFor={`iframe-${slug}`}>{t("iframe")}</Label>
           <Textarea
             id={`iframe-${slug}`}
             readOnly
@@ -120,11 +122,11 @@ function DistributionPanelContent({ slug, title, appUrl }: Props) {
             onClick={() => void copy("iframe", iframeSnippet)}
           >
             <Copy className="size-3.5" aria-hidden />
-            Copy iframe HTML
+            {t("copyIframe")}
           </Button>
           {copied === "iframe" ? (
             <p role="status" className="text-xs text-primary">
-              Copied HTML snippet.
+              {t("copiedIframe")}
             </p>
           ) : null}
         </div>
@@ -132,7 +134,7 @@ function DistributionPanelContent({ slug, title, appUrl }: Props) {
         <div className="space-y-2">
           <h3 className="flex items-center gap-1.5 text-sm font-medium">
             <QrCode className="size-4 text-primary" strokeWidth={1.5} aria-hidden />
-            QR code (links to public URL)
+            {t("qrHeading")}
           </h3>
           <div
             id={`qr-${slug}`}
@@ -147,11 +149,11 @@ function DistributionPanelContent({ slug, title, appUrl }: Props) {
               className="rounded-full border-foreground/12"
               onClick={downloadSvg}
             >
-              Download SVG
+              {t("downloadSvg")}
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Scans open the same page as the public URL — works for print, posters, and desk signage.
+            {t("qrHelp")}
           </p>
         </div>
       </CardContent>

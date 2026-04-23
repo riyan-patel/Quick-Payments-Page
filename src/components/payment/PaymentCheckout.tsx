@@ -7,30 +7,75 @@ import {
   useStripe,
 } from "@stripe/react-stripe-js";
 import { loadStripe, type StripeElementsOptions } from "@stripe/stripe-js";
-import { useCallback, useMemo, useState } from "react";
-import { validateCustomFieldResponses } from "@/lib/validate-fields";
+import { useLocale, useTranslations } from "next-intl";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { getCustomFieldValidationError } from "@/lib/validate-fields";
+import type { Locale } from "@/i18n/routing";
+import { withLocalePath } from "@/lib/locale-path";
 import type { AmountMode, CustomFieldRow, PaymentPageRow } from "@/types/qpp";
 import { CustomFieldInputs } from "./CustomFieldInputs";
-import { toNumber, validateAmountForPage } from "@/lib/amounts";
+import { getAmountValidationError, toNumber, type AmountValidationError } from "@/lib/amounts";
 import { getBrandPair } from "@/lib/brand-color-pair";
 import { brandCtaStyle, ctaButtonClassName } from "@/lib/brand-cta-style";
-import { brandStripGradientStyle, validHex6 } from "@/lib/brand-gradient-theme";
+import { validHex6 } from "@/lib/brand-gradient-theme";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import clsx from "clsx";
-import { cn } from "@/lib/utils";
 import { Banknote, CreditCard, UserRound } from "lucide-react";
 
 const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
+
+function formatAmountValidationMessage(
+  e: AmountValidationError,
+  t: (key: string, values?: Record<string, string>) => string,
+) {
+  switch (e.code) {
+    case "invalid":
+      return t("errors.amountInvalid");
+    case "fixed_misconfigured":
+      return t("errors.amountFixedMisconfigured");
+    case "amount_must_match_fixed":
+      return t("errors.amountMustMatchFixed");
+    case "range_misconfigured":
+      return t("errors.amountRangeMisconfigured");
+    case "out_of_range":
+      return t("errors.amountOutOfRange", {
+        min: e.min.toFixed(2),
+        max: e.max.toFixed(2),
+      });
+    default:
+      return t("errors.amountInvalid");
+  }
+}
 
 let stripePromise: ReturnType<typeof loadStripe> | null = null;
 function getStripe() {
   if (!stripePromise && pk) stripePromise = loadStripe(pk);
   return stripePromise;
 }
+
+function useDocumentDark(): boolean {
+  const [isDark, setIsDark] = useState(
+    () => typeof document !== "undefined" && document.documentElement.classList.contains("dark"),
+  );
+  useEffect(() => {
+    const el = document.documentElement;
+    const sync = () => setIsDark(el.classList.contains("dark"));
+    sync();
+    const obs = new MutationObserver(sync);
+    obs.observe(el, { attributes: true, attributeFilter: ["class"] });
+    return () => obs.disconnect();
+  }, []);
+  return isDark;
+}
+
+const payPayerInputClassName = clsx(
+  "h-12 rounded-2xl border border-border/80 bg-input px-4 text-[0.95rem] text-foreground transition-shadow",
+  "shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
+  "focus-visible:border-primary/30 focus-visible:ring-2 focus-visible:ring-primary/20",
+);
 
 type Props = {
   page: PaymentPageRow;
@@ -55,7 +100,9 @@ function CheckoutForm({
   fieldValues: Record<string, string>;
   onFatal: (msg: string) => void;
 }) {
-  const { primary: brandPrimary, secondary: brandSecondary } = getBrandPair(page);
+  const t = useTranslations("pay");
+  const locale = useLocale() as Locale;
+  const { primary: brandPrimary } = getBrandPair(page);
   const stripe = useStripe();
   const elements = useElements();
   const [busy, setBusy] = useState(false);
@@ -73,10 +120,11 @@ function CheckoutForm({
     } catch {
       /* ignore storage failures */
     }
+    const returnPath = withLocalePath(locale, `/pay/${slug}/return`);
     const { error, paymentIntent } = await stripe.confirmPayment({
       elements,
       confirmParams: {
-        return_url: `${window.location.origin}/pay/${slug}/return`,
+        return_url: `${window.location.origin}${returnPath}`,
         receipt_email: payerEmail,
         payment_method_data: {
           billing_details: {
@@ -89,13 +137,13 @@ function CheckoutForm({
     });
 
     if (error) {
-      setMsg(error.message ?? "Payment could not be completed.");
+      setMsg(error.message ?? t("errors.paymentIncomplete"));
       setBusy(false);
       return;
     }
 
     if (!paymentIntent || paymentIntent.status !== "succeeded") {
-      setMsg("Payment is still processing. Refresh in a moment or check your email.");
+      setMsg(t("errors.paymentProcessing"));
       setBusy(false);
       return;
     }
@@ -115,13 +163,14 @@ function CheckoutForm({
       });
       const data = await r.json();
       if (!r.ok) {
-        onFatal(typeof data.error === "string" ? data.error : "Could not finalize payment.");
+        onFatal(typeof data.error === "string" ? data.error : t("errors.finalizeFailed"));
         setBusy(false);
         return;
       }
-      window.location.href = `/pay/${slug}/success?id=${encodeURIComponent(data.transaction_id)}`;
+      const successPath = withLocalePath(locale, `/pay/${slug}/success`);
+      window.location.href = `${window.location.origin}${successPath}?id=${encodeURIComponent(data.transaction_id)}`;
     } catch {
-      onFatal("Network error while saving your payment.");
+      onFatal(t("errors.networkSave"));
       setBusy(false);
     }
   };
@@ -130,9 +179,9 @@ function CheckoutForm({
     <div className="space-y-5 border-t border-foreground/8 pt-6">
       <p className="flex items-center gap-2 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
         <CreditCard className="size-3.5 text-foreground/50" strokeWidth={1.75} aria-hidden />
-        Payment method
+        {t("paymentMethod")}
       </p>
-      <div className="rounded-2xl border border-foreground/6 bg-foreground/[0.02] p-1 sm:p-1.5">
+      <div className="rounded-2xl border border-foreground/6 bg-foreground/[0.02] p-1 sm:p-1.5 dark:border-border/50 dark:bg-card/35">
         <PaymentElement
           options={{
             layout: "tabs",
@@ -155,15 +204,16 @@ function CheckoutForm({
         onClick={pay}
         disabled={busy || !stripe}
         className={ctaButtonClassName}
-        style={brandCtaStyle(brandPrimary, brandSecondary)}
+        style={brandCtaStyle(brandPrimary)}
       >
-        {busy ? "Processing…" : "Pay securely"}
+        {busy ? t("processing") : t("paySecurely")}
       </Button>
     </div>
   );
 }
 
 export function PaymentCheckout({ page, fields, embed }: Props) {
+  const t = useTranslations("pay");
   const slug = page.slug;
   const [amountStr, setAmountStr] = useState(() => {
     if (page.amount_mode === "fixed") return page.fixed_amount ?? "";
@@ -197,7 +247,7 @@ export function PaymentCheckout({ page, fields, embed }: Props) {
       fe[f.id] = f.field_type === "checkbox" ? (fieldValues[f.id] ?? "false") : v;
     }
 
-    const ferr = validateCustomFieldResponses(fields, fe);
+    const ferr = getCustomFieldValidationError(fields, fe, t);
     if (ferr) {
       setFormError(ferr);
       return;
@@ -205,25 +255,23 @@ export function PaymentCheckout({ page, fields, embed }: Props) {
 
     const amt = resolvedAmount;
     if (amt == null) {
-      setFormError("Enter a valid amount.");
+      setFormError(t("errors.amountInvalid"));
       return;
     }
 
-    const err = validateAmountForPage(page, amt);
-    if (err) {
-      setFormError(err);
+    const amountErr = getAmountValidationError(page, amt);
+    if (amountErr) {
+      setFormError(formatAmountValidationMessage(amountErr, t));
       return;
     }
 
     if (!payerEmail.trim() || !payerName.trim()) {
-      setFormError("Enter your name and a valid email address.");
+      setFormError(t("errors.nameEmail"));
       return;
     }
 
     if (!pk) {
-      setFormError(
-        "Add NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY to .env.local and restart npm run dev — see the yellow box above.",
-      );
+      setFormError(t("errors.stripeKey"));
       return;
     }
 
@@ -242,24 +290,25 @@ export function PaymentCheckout({ page, fields, embed }: Props) {
       });
       const data = await r.json();
       if (!r.ok) {
-        setFormError(typeof data.error === "string" ? data.error : "Could not start payment.");
+        setFormError(typeof data.error === "string" ? data.error : t("errors.startFailed"));
         setStepBusy(false);
         return;
       }
       setClientSecret(data.clientSecret as string);
     } catch {
-      setFormError("Network error. Try again.");
+      setFormError(t("errors.network"));
     }
     setStepBusy(false);
   };
 
   const { primary: brandPrimary, secondary: brandSecondary } = getBrandPair(page);
+  const isDocumentDark = useDocumentDark();
 
   const options: StripeElementsOptions = useMemo(
     () => ({
       clientSecret: clientSecret!,
       appearance: {
-        theme: "stripe",
+        theme: isDocumentDark ? "night" : "stripe",
         variables: {
           colorPrimary: brandPrimary,
           borderRadius: "14px",
@@ -267,14 +316,19 @@ export function PaymentCheckout({ page, fields, embed }: Props) {
           spacingUnit: "3px",
         },
         rules: {
-          ".Input": {
-            border: "1px solid oklch(0.9 0.012 85)",
-            boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
-          },
+          ".Input": isDocumentDark
+            ? {
+                border: "1px solid oklch(0.38 0.02 90)",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.35)",
+              }
+            : {
+                border: "1px solid oklch(0.9 0.012 85)",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+              },
         },
       },
     }),
-    [clientSecret, brandPrimary],
+    [clientSecret, brandPrimary, isDocumentDark],
   );
 
   if (fatal) {
@@ -321,60 +375,57 @@ export function PaymentCheckout({ page, fields, embed }: Props) {
     >
       {!pk ? (
         <Alert className="rounded-2xl border-amber-200/80 bg-gradient-to-b from-amber-50/95 to-amber-50/50 text-amber-950 shadow-[0_4px_20px_rgba(245,158,11,0.12)] dark:bg-amber-950/20 dark:text-amber-100">
-          <AlertTitle>Finish Stripe setup (test mode)</AlertTitle>
+          <AlertTitle>{t("stripe.title")}</AlertTitle>
           <AlertDescription className="text-amber-950/95 dark:text-amber-100/90">
-            <p>Your publishable key isn’t in the app yet, so checkout can’t start.</p>
+            <p>{t("stripe.intro")}</p>
             <ol className="mt-3 list-decimal space-y-2 pl-5">
               <li>
-                Open{" "}
+                {t("stripe.step1")}{" "}
                 <a
                   href="https://dashboard.stripe.com/test/apikeys"
                   className="font-medium text-primary underline underline-offset-2"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  Stripe → Developers → API keys (Test)
+                  {t("stripe.openDashboard")}
                 </a>
                 .
               </li>
               <li>
-                Put <strong>Publishable key</strong>{" "}
+                {t("stripe.step2a")} <strong>{t("stripe.publishableKey")}</strong>{" "}
                 <code className="rounded bg-background/90 px-1.5 py-0.5 text-xs text-foreground">
                   pk_test_…
                 </code>{" "}
-                in <code className="rounded bg-background/90 px-1 text-xs text-foreground">.env.local</code>{" "}
-                as{" "}
+                {t("stripe.step2b")}{" "}
+                <code className="rounded bg-background/90 px-1 text-xs text-foreground">.env.local</code>{" "}
+                {t("stripe.step2c")}{" "}
                 <code className="rounded bg-background/90 px-1 text-xs text-foreground">
                   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
                 </code>
               </li>
               <li>
-                Put <strong>Secret key</strong>{" "}
+                {t("stripe.step3a")} <strong>{t("stripe.secretKey")}</strong>{" "}
                 <code className="rounded bg-background/90 px-1.5 py-0.5 text-xs text-foreground">
                   sk_test_…
                 </code>{" "}
-                as{" "}
+                {t("stripe.step2c")}{" "}
                 <code className="rounded bg-background/90 px-1 text-xs text-foreground">
                   STRIPE_SECRET_KEY=
                 </code>
               </li>
               <li>
-                Add <strong>Supabase service role</strong> as{" "}
+                {t("stripe.step4a")} <strong>{t("stripe.supabaseService")}</strong>{" "}
                 <code className="rounded bg-background/90 px-1 text-xs text-foreground">
                   SUPABASE_SERVICE_ROLE_KEY=
                 </code>{" "}
-                (Project Settings → API) so successful payments are saved.
+                {t("stripe.step4b")}
               </li>
               <li>
-                <strong>Restart</strong>{" "}
-                <code className="rounded bg-background/90 px-1 text-xs text-foreground">
-                  npm run dev
-                </code>{" "}
-                — Next.js only reads{" "}
-                <code className="rounded bg-background/90 px-1 text-xs text-foreground">
-                  NEXT_PUBLIC_*
-                </code>{" "}
-                at startup.
+                <strong>{t("stripe.step5a")}</strong>{" "}
+                <code className="rounded bg-background/90 px-1 text-xs text-foreground">npm run dev</code>{" "}
+                {t("stripe.step5b")}{" "}
+                <code className="rounded bg-background/90 px-1 text-xs text-foreground">NEXT_PUBLIC_*</code>{" "}
+                {t("stripe.step5c")}
               </li>
             </ol>
           </AlertDescription>
@@ -402,34 +453,34 @@ export function PaymentCheckout({ page, fields, embed }: Props) {
       <fieldset className="space-y-0 border-0 p-0">
         <legend className="flex w-full items-center gap-2 px-0.5 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           <UserRound className="size-3.5 text-foreground/50" strokeWidth={1.75} aria-hidden />
-          Your details
+          {t("yourDetails")}
         </legend>
         <div className="mt-4 rounded-2xl border border-foreground/8 bg-gradient-to-b from-card to-muted/15 p-5 shadow-sm ring-1 ring-foreground/5 sm:p-6">
           <div className="space-y-5">
             <div className="space-y-1.5">
               <Label htmlFor="payer-name" className="text-sm font-medium text-foreground/90">
-                Full name <span className="text-destructive">*</span>
+                {t("fullName")} <span className="text-destructive">{t("requiredMark")}</span>
               </Label>
               <Input
                 id="payer-name"
                 name="payer-name"
                 type="text"
                 autoComplete="name"
-                className="h-12 rounded-2xl border-foreground/10 bg-white/80 px-4 text-[0.95rem] shadow-[inset_0_1px_2px_rgba(0,0,0,0.04)] transition-shadow focus-visible:border-primary/30 focus-visible:ring-2 focus-visible:ring-primary/20"
+                className={payPayerInputClassName}
                 value={payerName}
                 onChange={(e) => setPayerName(e.target.value)}
               />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="payer-email" className="text-sm font-medium text-foreground/90">
-                Email for receipt <span className="text-destructive">*</span>
+                {t("emailReceipt")} <span className="text-destructive">{t("requiredMark")}</span>
               </Label>
               <Input
                 id="payer-email"
                 name="payer-email"
                 type="email"
                 autoComplete="email"
-                className="h-12 rounded-2xl border-foreground/10 bg-white/80 px-4 text-[0.95rem] shadow-[inset_0_1px_2px_rgba(0,0,0,0.04)] transition-shadow focus-visible:border-primary/30 focus-visible:ring-2 focus-visible:ring-primary/20"
+                className={payPayerInputClassName}
                 value={payerEmail}
                 onChange={(e) => setPayerEmail(e.target.value)}
               />
@@ -447,11 +498,11 @@ export function PaymentCheckout({ page, fields, embed }: Props) {
       <Button
         type="submit"
         disabled={stepBusy || !pk}
-        title={!pk ? "Configure Stripe keys in .env.local first" : undefined}
-        className={cn(ctaButtonClassName, "disabled:grayscale-[0.3]")}
-        style={brandCtaStyle(brandPrimary, brandSecondary)}
+        title={!pk ? t("configureStripeTitle") : undefined}
+        className={ctaButtonClassName}
+        style={brandCtaStyle(brandPrimary)}
       >
-        {stepBusy ? "Loading secure checkout…" : "Continue to payment"}
+        {stepBusy ? t("loadingCheckout") : t("continueToPayment")}
       </Button>
     </form>
   );
@@ -476,71 +527,61 @@ function AmountSection({
   brandColor: string;
   brandColorSecondary: string;
 }) {
+  const t = useTranslations("pay");
+  const locale = useLocale();
   const min = toNumber(minAmount);
   const max = toNumber(maxAmount);
+  const numberLocale = locale === "es" ? "es-ES" : "en-US";
 
   if (mode === "fixed") {
     const p = validHex6(brandColor, "#0f766e");
     const s = validHex6(brandColorSecondary, "#f59e0b");
-    const strip = brandStripGradientStyle(brandColor, brandColorSecondary);
     const fa = toNumber(fixedAmount);
     return (
-      <Card
-        className="relative overflow-hidden rounded-2xl border-0 text-white ring-0"
-        style={{
-          background: `linear-gradient(128deg, #161618 0%, color-mix(in srgb, ${p} 30%, #0a0a0b) 52%, #0e0e10 100%)`,
-          boxShadow:
-            "0 8px 40px rgba(0,0,0,0.22), 0 0 0 1px color-mix(in srgb, " + p + " 18%, rgba(255,255,255,0.06))",
-        }}
+      <div
+        className="space-y-2 rounded-2xl border border-foreground/8 bg-gradient-to-b from-card/90 to-muted/20 p-5 shadow-sm ring-1 ring-foreground/5 sm:p-6"
+        style={{ borderLeftWidth: 4, borderLeftColor: p, borderLeftStyle: "solid" }}
       >
-        <div className="absolute left-0 top-0 h-full w-1.5" style={strip} aria-hidden />
-        <div
-          className="pointer-events-none absolute -right-8 -top-20 h-40 w-40 rounded-full blur-3xl"
-          style={{ background: `color-mix(in srgb, ${s} 22%, transparent)` }}
-          aria-hidden
-        />
-        <CardHeader className="pb-1 pl-5 pt-6 sm:pl-6">
-          <CardTitle
-            id="amount-heading"
-            className="flex items-center gap-2 text-[0.7rem] font-semibold uppercase tracking-[0.2em]"
-            style={{ color: `color-mix(in srgb, ${s} 78%, #fff)` }}
-          >
-            <Banknote
-              className="size-3.5"
-              style={{ color: `color-mix(in srgb, ${s} 88%, #fff)` }}
-              strokeWidth={1.75}
-              aria-hidden
-            />
-            Amount due
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 pb-7 pl-5 pt-0 sm:pl-6">
-          <p className="pay-font-display text-3xl font-bold tracking-tight tabular-nums sm:text-4xl">
-            {fa != null
-              ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
-                  fa,
-                )
-              : "—"}
-          </p>
-          <CardDescription className="text-sm text-zinc-400">
-            This amount is set by the organization and cannot be changed here.
-          </CardDescription>
-        </CardContent>
-      </Card>
+        <h2
+          id="amount-heading"
+          className="flex items-center gap-2 text-[0.7rem] font-semibold uppercase tracking-[0.2em]"
+          style={{ color: s }}
+        >
+          <Banknote className="size-3.5 shrink-0" style={{ color: s }} strokeWidth={1.75} aria-hidden />
+          {t("amountDue")}
+        </h2>
+        <p className="pay-font-display text-3xl font-bold leading-none tracking-tight text-foreground tabular-nums sm:text-4xl">
+          {fa != null
+            ? new Intl.NumberFormat(numberLocale, { style: "currency", currency: "USD" }).format(fa)
+            : "—"}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          {t("amountFixed")}
+        </p>
+      </div>
     );
   }
+
+  const minStr =
+    min != null
+      ? new Intl.NumberFormat(numberLocale, { style: "currency", currency: "USD" }).format(min)
+      : null;
+  const maxStr =
+    max != null
+      ? new Intl.NumberFormat(numberLocale, { style: "currency", currency: "USD" }).format(max)
+      : null;
 
   return (
     <fieldset className="space-y-3 border-0 p-0">
       <legend className="flex items-center gap-2 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
         <Banknote className="size-3.5 text-foreground/50" strokeWidth={1.75} aria-hidden />
-        Payment amount
+        {t("paymentAmount")}
       </legend>
       <div className="space-y-2">
         <Label htmlFor="pay-amount" className="text-foreground/90">
-          {mode === "range"
-            ? `Amount (${min != null && max != null ? `$${min.toFixed(2)} – $${max.toFixed(2)}` : "range"})`
-            : "Amount (USD)"}
+          {mode === "range" && minStr != null && maxStr != null
+            ? t("amountInRange", { min: minStr, max: maxStr })
+            : t("amountUsd")}
         </Label>
         <div className="relative">
           <span className="pointer-events-none absolute top-1/2 left-4 z-10 -translate-y-1/2 text-sm font-medium text-muted-foreground">
@@ -556,14 +597,12 @@ function AmountSection({
             max={mode === "range" && max != null ? max : undefined}
             value={amountStr}
             onChange={(e) => onAmountStrChange(e.target.value)}
-            className="h-12 rounded-2xl border-foreground/8 bg-card pl-9 text-lg font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]"
+            className="h-12 rounded-2xl border border-border/80 bg-input pl-8 text-base font-medium text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
             aria-describedby="pay-amount-help"
           />
         </div>
         <p id="pay-amount-help" className="text-xs text-muted-foreground">
-          {mode === "open"
-            ? "Enter the amount you wish to pay."
-            : "Enter an amount within the allowed range."}
+          {mode === "open" ? t("openHelp") : t("rangeHelp")}
         </p>
       </div>
     </fieldset>

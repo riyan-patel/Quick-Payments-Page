@@ -15,8 +15,15 @@ type Props = {
   disabled?: boolean;
 };
 
+const customFieldInputBase = cn(
+  "h-12 rounded-2xl border border-border/80 bg-input px-4 text-foreground",
+  "shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
+);
+
 const selectClassName = cn(
-  "flex h-12 w-full rounded-2xl border border-foreground/8 bg-card px-4 py-2 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.5)] transition-colors outline-none",
+  "flex h-12 w-full rounded-2xl border border-border/80 bg-input px-4 py-2 text-sm text-foreground",
+  "shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
+  "transition-colors outline-none",
   "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
   "disabled:cursor-not-allowed disabled:opacity-50",
   "aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20",
@@ -69,10 +76,7 @@ export function CustomFieldInputs({
                 onChange={(e) => onChange(f.id, e.target.value)}
                 aria-invalid={err ? true : undefined}
                 aria-describedby={describedBy}
-                className={cn(
-                  "h-12 rounded-2xl border-foreground/8 bg-card px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]",
-                  err && "border-destructive",
-                )}
+                className={cn(customFieldInputBase, err && "border-destructive")}
               />
             )}
             {f.field_type === "number" && (
@@ -87,10 +91,7 @@ export function CustomFieldInputs({
                 onChange={(e) => onChange(f.id, e.target.value)}
                 aria-invalid={err ? true : undefined}
                 aria-describedby={describedBy}
-                className={cn(
-                  "h-12 rounded-2xl border-foreground/8 bg-card px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]",
-                  err && "border-destructive",
-                )}
+                className={cn(customFieldInputBase, err && "border-destructive")}
               />
             )}
             {f.field_type === "date" && (
@@ -103,10 +104,7 @@ export function CustomFieldInputs({
                 onChange={(e) => onChange(f.id, e.target.value)}
                 aria-invalid={err ? true : undefined}
                 aria-describedby={describedBy}
-                className={cn(
-                  "h-12 rounded-2xl border-foreground/8 bg-card px-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]",
-                  err && "border-destructive",
-                )}
+                className={cn(customFieldInputBase, err && "border-destructive")}
               />
             )}
             {f.field_type === "dropdown" && (

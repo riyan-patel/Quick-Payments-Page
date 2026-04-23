@@ -8,7 +8,10 @@ export function validHex6(raw: string | null | undefined, fallback: string): str
   return /^#[0-9A-Fa-f]{6}$/i.test(t) ? t : fallback;
 }
 
-/** Soft page background (light mesh from primary + secondary). */
+/**
+ * Public pay canvas — full-bleed mesh where **primary** and **secondary** are visible
+ * (tinted diagonals + soft radii; still reads as one continuous background).
+ */
 export function payPageBackgroundStyle(
   primary: string | null | undefined,
   secondary: string | null | undefined,
@@ -17,51 +20,43 @@ export function payPageBackgroundStyle(
   const s = validHex6(secondary, FALLBACK_S);
   return {
     background: [
-      `radial-gradient(90% 60% at 10% 0%, color-mix(in srgb, ${p} 16%, #faf8f2) 0%, transparent 55%)`,
-      `radial-gradient(80% 50% at 90% 10%, color-mix(in srgb, ${s} 14%, #f0f2f6) 0%, transparent 50%)`,
-      `linear-gradient(180deg, #faf7f0 0%, #f3f0ea 50%, #eef1f4 100%)`,
+      // CSS: first list item = top layer (stronger brand haze in corners)
+      `radial-gradient(ellipse 100% 88% at 0% 0%, color-mix(in srgb, ${p} 40%, #faf7f2) 0%, transparent 58%)`,
+      `radial-gradient(ellipse 95% 80% at 100% 0%, color-mix(in srgb, ${s} 36%, #f5f1ea) 0%, transparent 56%)`,
+      `radial-gradient(ellipse 85% 65% at 18% 88%, color-mix(in srgb, ${p} 22%, color-mix(in srgb, ${s} 18%, #e6e2dc)) 0%, transparent 60%)`,
+      `radial-gradient(ellipse 70% 60% at 100% 75%, color-mix(in srgb, ${s} 18%, #e0e1e3) 0%, transparent 55%)`,
+      // Diagonal body: hand-off between the two tints
+      `linear-gradient(168deg, color-mix(in srgb, ${p} 18%, #f1ece6) 0%, #ebe8e3 40%, color-mix(in srgb, ${s} 15%, #e6e7eb) 100%)`,
     ].join(", "),
   };
 }
 
-/** Dark host column: neutral base + brand-tinted gradient. */
-export function brandHostPanelStyle(
+/** Dark pay canvas: brand tints on deep neutral (pairs with `payPageBackgroundStyle` in light). */
+export function payPageBackgroundStyleDark(
   primary: string | null | undefined,
   secondary: string | null | undefined,
 ): CSSProperties {
   const p = validHex6(primary, FALLBACK_P);
   const s = validHex6(secondary, FALLBACK_S);
+  const base = "#0b0e12";
   return {
-    background: `linear-gradient(165deg, #141416 0%, color-mix(in srgb, ${p} 32%, #0c0c0e) 42%, #09090a 100%)`,
-    boxShadow: [
-      "inset 0 1px 0 rgba(255,255,255,0.07)",
-      "0 32px 64px -24px rgba(0,0,0,0.55)",
-      `0 0 0 1px color-mix(in srgb, ${p} 25%, rgba(0,0,0,0.35))`,
+    background: [
+      `radial-gradient(ellipse 100% 88% at 0% 0%, color-mix(in srgb, ${p} 32%, ${base}) 0%, transparent 58%)`,
+      `radial-gradient(ellipse 95% 80% at 100% 0%, color-mix(in srgb, ${s} 24%, ${base}) 0%, transparent 56%)`,
+      `radial-gradient(ellipse 85% 65% at 18% 88%, color-mix(in srgb, ${p} 20%, color-mix(in srgb, ${s} 14%, #12161c)) 0%, transparent 60%)`,
+      `radial-gradient(ellipse 70% 60% at 100% 75%, color-mix(in srgb, ${s} 12%, #141820) 0%, transparent 55%)`,
+      `linear-gradient(168deg, #0a0c10 0%, #0d1016 40%, #0b0d12 100%)`,
     ].join(", "),
   };
 }
 
-export function brandGlowOrbs(
-  primary: string | null | undefined,
-  secondary: string | null | undefined,
-): { top: CSSProperties; bottom: CSSProperties } {
+/**
+ * Glass panel border color (elevation is `pay-glass-surface` in globals for light / dark).
+ */
+export function brandGlassPanelBorder(primary: string | null | undefined): CSSProperties {
   const p = validHex6(primary, FALLBACK_P);
-  const s = validHex6(secondary, FALLBACK_S);
   return {
-    top: { background: `color-mix(in srgb, ${s} 22%, transparent)` },
-    bottom: { background: `color-mix(in srgb, ${p} 20%, transparent)` },
-  };
-}
-
-/** Horizontal brand strip (checkout card top, amount accent). */
-export function brandStripGradientStyle(
-  primary: string | null | undefined,
-  secondary: string | null | undefined,
-): CSSProperties {
-  const p = validHex6(primary, FALLBACK_P);
-  const s = validHex6(secondary, FALLBACK_S);
-  return {
-    background: `linear-gradient(90deg, color-mix(in srgb, ${p} 90%, #fff) 0%, ${p} 35%, color-mix(in srgb, ${s} 85%, #fff) 100%)`,
+    borderColor: `color-mix(in srgb, ${p} 18%, var(--border))`,
   };
 }
 

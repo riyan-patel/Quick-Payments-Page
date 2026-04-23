@@ -2,27 +2,33 @@ import type { CSSProperties } from "react";
 import { validHex6 } from "@/lib/brand-gradient-theme";
 
 const FALLBACK_P = "#0f766e";
-const FALLBACK_S = "#f59e0b";
+
+function readableTextOn(hex: string): "#fafafa" | "#18181b" {
+  const h = hex.replace("#", "");
+  if (h.length !== 6) return "#fafafa";
+  const r = parseInt(h.slice(0, 2), 16) / 255;
+  const g = parseInt(h.slice(2, 4), 16) / 255;
+  const b = parseInt(h.slice(4, 6), 16) / 255;
+  const l = 0.2126 * (r <= 0.03928 ? r / 12.92 : ((r + 0.055) / 1.055) ** 2.4) +
+    0.7152 * (g <= 0.03928 ? g / 12.92 : ((g + 0.055) / 1.055) ** 2.4) +
+    0.0722 * (b <= 0.03928 ? b / 12.92 : ((b + 0.055) / 1.055) ** 2.4);
+  return l > 0.55 ? "#18181b" : "#fafafa";
+}
 
 /**
- * Two-tone pill CTA: primary → secondary (with highlight) + tinted shadow.
+ * Flat CTA: solid primary fill, no gradients or glossy insets. Matches the rest of the app
+ * (shadcn-style buttons) while honoring the org’s pick.
  */
 export function brandCtaStyle(
   primary: string | null | undefined,
-  secondary?: string | null | undefined,
+  _secondary?: string | null | undefined,
 ): CSSProperties {
-  const p = validHex6(primary, FALLBACK_P);
-  const s = validHex6(secondary, FALLBACK_S);
+  const bg = validHex6(primary, FALLBACK_P);
   return {
-    background: `linear-gradient(180deg, color-mix(in srgb, ${p} 70%, #ffffff) 0%, ${p} 42%, color-mix(in srgb, ${p} 40%, ${s}) 100%)`,
-    boxShadow: [
-      "inset 0 1px 0 rgba(255,255,255,0.3)",
-      `0 12px 32px -10px color-mix(in srgb, ${p} 45%, rgba(0,0,0,0.2))`,
-      `0 4px 16px -6px color-mix(in srgb, ${s} 35%, rgba(0,0,0,0.12))`,
-      "0 1px 2px rgba(0,0,0,0.05)",
-    ].join(", "),
+    backgroundColor: bg,
+    color: readableTextOn(bg),
   };
 }
 
 export const ctaButtonClassName =
-  "h-12 w-full rounded-full border-0 text-base font-semibold text-white transition-[transform,filter,box-shadow] duration-200 hover:brightness-105 active:scale-[0.99] active:brightness-95 disabled:opacity-60 disabled:active:scale-100";
+  "h-12 w-full rounded-lg border-0 text-base font-semibold shadow-sm transition-[opacity,transform] duration-150 hover:opacity-90 active:scale-[0.99] active:opacity-100 disabled:opacity-50 disabled:active:scale-100";

@@ -35,14 +35,19 @@ export default async function ReportsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-900">Reports</h1>
-        <p className="mt-2 text-sm text-zinc-600">
+        <h1 className="text-2xl font-bold tracking-tight">Reports</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
           Default view: last 30 days. Filter by date, page, and status; export CSV matches the
           current table. Breakdowns use GL codes on each transaction and Stripe payment method
           types.
         </p>
       </div>
-      <ReportsClient pages={pages} initialRows={initialRows} />
+      <ReportsClient
+        pages={pages}
+        initialRows={initialRows}
+        initialFrom={from}
+        initialTo={to}
+      />
     </div>
   );
 }

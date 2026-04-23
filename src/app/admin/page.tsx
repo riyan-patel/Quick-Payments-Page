@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
+import { cn } from "@/lib/utils";
 
 export default async function AdminHomePage() {
   const supabase = await createClient();
@@ -30,42 +33,56 @@ export default async function AdminHomePage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-900">Dashboard</h1>
-        <p className="mt-2 text-zinc-600">
-          Signed in as <span className="font-medium text-zinc-800">{user?.email}</span>
+        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+        <p className="mt-2 text-muted-foreground">
+          Signed in as <span className="font-medium text-foreground">{user?.email}</span>
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <h2 className="text-sm font-medium text-zinc-500">Payment pages</h2>
-          <p className="mt-2 text-3xl font-bold tabular-nums text-zinc-900">{pageCount ?? 0}</p>
-          <Link
-            href="/admin/pages"
-            className="mt-4 inline-block text-sm font-medium text-teal-800 underline"
-          >
-            Manage pages
-          </Link>
-        </div>
-        <div className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
-          <h2 className="text-sm font-medium text-zinc-500">Transactions (your pages)</h2>
-          <p className="mt-2 text-3xl font-bold tabular-nums text-zinc-900">{txCount}</p>
-          <Link
-            href="/admin/reports"
-            className="mt-4 inline-block text-sm font-medium text-teal-800 underline"
-          >
-            Open reports
-          </Link>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardDescription>Payment pages</CardDescription>
+            <CardTitle className="text-3xl font-bold tabular-nums">
+              {pageCount ?? 0}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Link
+              href="/admin/pages"
+              className={cn(buttonVariants({ variant: "link" }), "h-auto p-0 text-primary")}
+            >
+              Manage pages
+            </Link>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardDescription>Transactions (your pages)</CardDescription>
+            <CardTitle className="text-3xl font-bold tabular-nums">{txCount}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Link
+              href="/admin/reports"
+              className={cn(buttonVariants({ variant: "link" }), "h-auto p-0 text-primary")}
+            >
+              Open reports
+            </Link>
+          </CardContent>
+        </Card>
       </div>
-      <section className="rounded-xl border border-teal-200 bg-teal-50/80 p-6 text-sm text-teal-950">
-        <h2 className="font-semibold text-teal-900">Demo checklist</h2>
-        <ul className="mt-3 list-inside list-disc space-y-1">
-          <li>Create at least two payment pages with different amount modes.</li>
-          <li>Use “Distribution” to copy the URL, iframe snippet, and QR code.</li>
-          <li>Complete a test payment with Stripe test cards — then verify it in Reports.</li>
-          <li>Confirm Resend delivers email (check spam; verify sender domain for production).</li>
-        </ul>
-      </section>
+      <Card className="border-primary/25 bg-primary/5">
+        <CardHeader>
+          <CardTitle className="text-base text-primary">Demo checklist</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="list-inside list-disc space-y-1 text-sm text-foreground/90">
+            <li>Create at least two payment pages with different amount modes.</li>
+            <li>Use “Distribution” to copy the URL, iframe snippet, and QR code.</li>
+            <li>Complete a test payment with Stripe test cards — then verify it in Reports.</li>
+            <li>Confirm Resend delivers email (check spam; verify sender domain for production).</li>
+          </ul>
+        </CardContent>
+      </Card>
     </div>
   );
 }

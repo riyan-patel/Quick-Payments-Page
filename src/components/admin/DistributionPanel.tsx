@@ -2,6 +2,12 @@
 
 import QRCode from "react-qr-code";
 import { useCallback, useState } from "react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 type Props = {
   slug: string;
@@ -12,13 +18,13 @@ type Props = {
 export function DistributionPanel(props: Props) {
   if (!props.appUrl.trim()) {
     return (
-      <section className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-amber-950">
-        <h2 className="text-lg font-semibold">Distribution</h2>
-        <p className="mt-2 text-sm">
-          Set <code className="rounded bg-white px-1">NEXT_PUBLIC_APP_URL</code> in your environment
+      <Alert>
+        <AlertTitle>Distribution</AlertTitle>
+        <AlertDescription>
+          Set <code className="rounded bg-muted px-1">NEXT_PUBLIC_APP_URL</code> in your environment
           (e.g. https://your-app.vercel.app) to generate share links, iframe HTML, and QR codes.
-        </p>
-      </section>
+        </AlertDescription>
+      </Alert>
     );
   }
 
@@ -57,82 +63,69 @@ function DistributionPanelContent({ slug, title, appUrl }: Props) {
   };
 
   return (
-    <section className="space-y-6 rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-zinc-900">Distribution</h2>
+    <Card>
+      <CardHeader>
+        <CardTitle>Distribution</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="space-y-2">
+          <Label htmlFor={`pay-url-${slug}`}>Public payment URL</Label>
+          <div className="flex flex-wrap gap-2">
+            <Input
+              id={`pay-url-${slug}`}
+              readOnly
+              value={payUrl}
+              className="min-w-[12rem] flex-1 font-mono text-sm"
+            />
+            <Button type="button" onClick={() => void copy("url", payUrl)}>
+              Copy URL
+            </Button>
+          </div>
+          {copied === "url" ? (
+            <p role="status" className="text-xs text-primary">
+              Copied link to clipboard.
+            </p>
+          ) : null}
+        </div>
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-zinc-800" htmlFor={`pay-url-${slug}`}>
-          Public payment URL
-        </label>
-        <div className="flex flex-wrap gap-2">
-          <input
-            id={`pay-url-${slug}`}
+        <div className="space-y-2">
+          <Label htmlFor={`iframe-${slug}`}>Embeddable iframe</Label>
+          <Textarea
+            id={`iframe-${slug}`}
             readOnly
-            value={payUrl}
-            className="min-w-[12rem] flex-1 rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-2 font-mono text-sm"
+            rows={5}
+            value={iframeSnippet}
+            className="font-mono text-xs"
           />
-          <button
-            type="button"
-            onClick={() => void copy("url", payUrl)}
-            className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-medium text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-900"
-          >
-            Copy URL
-          </button>
+          <Button type="button" variant="outline" onClick={() => void copy("iframe", iframeSnippet)}>
+            Copy iframe HTML
+          </Button>
+          {copied === "iframe" ? (
+            <p role="status" className="text-xs text-primary">
+              Copied HTML snippet.
+            </p>
+          ) : null}
         </div>
-        {copied === "url" ? (
-          <p role="status" className="text-xs text-teal-800">
-            Copied link to clipboard.
-          </p>
-        ) : null}
-      </div>
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-zinc-800" htmlFor={`iframe-${slug}`}>
-          Embeddable iframe
-        </label>
-        <textarea
-          id={`iframe-${slug}`}
-          readOnly
-          rows={5}
-          value={iframeSnippet}
-          className="w-full rounded-lg border border-zinc-300 bg-zinc-50 px-3 py-2 font-mono text-xs"
-        />
-        <button
-          type="button"
-          onClick={() => void copy("iframe", iframeSnippet)}
-          className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-400"
-        >
-          Copy iframe HTML
-        </button>
-        {copied === "iframe" ? (
-          <p role="status" className="text-xs text-teal-800">
-            Copied HTML snippet.
-          </p>
-        ) : null}
-      </div>
-
-      <div className="space-y-2">
-        <h3 className="text-sm font-medium text-zinc-800">QR code (links to public URL)</h3>
-        <div
-          id={`qr-${slug}`}
-          className="inline-block rounded-lg border border-zinc-200 bg-white p-3"
-        >
-          <QRCode value={payUrl} size={160} title={`QR code for ${title}`} />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={downloadSvg}
-            className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-400"
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium">QR code (links to public URL)</h3>
+          <div
+            id={`qr-${slug}`}
+            className="inline-block rounded-lg border border-border bg-background p-3"
           >
-            Download SVG
-          </button>
+            <QRCode value={payUrl} size={160} title={`QR code for ${title}`} />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={downloadSvg}>
+              Download SVG
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Scans open the same page as the public URL — works for print, posters, and desk signage.
+          </p>
         </div>
-        <p className="text-xs text-zinc-500">
-          Scans open the same page as the public URL — works for print, posters, and desk signage.
-        </p>
-      </div>
-    </section>
+      </CardContent>
+    </Card>
   );
 }
 

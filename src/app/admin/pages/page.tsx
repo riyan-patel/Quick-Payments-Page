@@ -1,7 +1,11 @@
 import Link from "next/link";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { displayAmountMode } from "@/app/admin/actions";
 import { createClient } from "@/lib/supabase/server";
 import type { PaymentPageRow } from "@/types/qpp";
-import { displayAmountMode } from "@/app/admin/actions";
+import { cn } from "@/lib/utils";
 
 export default async function AdminPagesListPage() {
   const supabase = await createClient();
@@ -11,7 +15,11 @@ export default async function AdminPagesListPage() {
     .order("updated_at", { ascending: false });
 
   if (error) {
-    return <p className="text-red-800">Could not load pages: {error.message}</p>;
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>Could not load pages: {error.message}</AlertDescription>
+      </Alert>
+    );
   }
 
   const pages = (data ?? []) as PaymentPageRow[];
@@ -19,60 +27,69 @@ export default async function AdminPagesListPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-zinc-900">Payment pages</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Payment pages</h1>
         <Link
           href="/admin/pages/new"
-          className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-900"
+          className={cn(buttonVariants({ size: "default" }), "no-underline")}
         >
           New page
         </Link>
       </div>
       {pages.length === 0 ? (
-        <p className="rounded-lg border border-zinc-200 bg-white p-8 text-center text-zinc-600">
-          No pages yet.{" "}
-          <Link href="/admin/pages/new" className="font-medium text-teal-800 underline">
-            Create your first payment page
-          </Link>
-          .
-        </p>
+        <Card>
+          <CardContent className="py-10 text-center text-muted-foreground">
+            No pages yet.{" "}
+            <Link
+              href="/admin/pages/new"
+              className={cn(
+                buttonVariants({ variant: "link" }),
+                "h-auto p-0 text-primary",
+              )}
+            >
+              Create your first payment page
+            </Link>
+            .
+          </CardContent>
+        </Card>
       ) : (
         <ul className="space-y-3">
           {pages.map((p) => (
-            <li
-              key={p.id}
-              className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm"
-            >
-              <div>
-                <p className="font-semibold text-zinc-900">{p.title}</p>
-                <p className="text-sm text-zinc-600">
-                  /pay/{p.slug} · {displayAmountMode(p.amount_mode)}
-                  {!p.is_active ? (
-                    <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-900">
-                      Inactive
-                    </span>
-                  ) : (
-                    <span className="ml-2 rounded bg-emerald-100 px-2 py-0.5 text-xs text-emerald-900">
-                      Active
-                    </span>
-                  )}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Link
-                  href={`/pay/${p.slug}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-800"
-                >
-                  Open public page
-                </Link>
-                <Link
-                  href={`/admin/pages/${p.id}/edit`}
-                  className="rounded-lg bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white"
-                >
-                  Edit
-                </Link>
-              </div>
+            <li key={p.id}>
+              <Card>
+                <CardContent className="flex flex-wrap items-center justify-between gap-4 py-4">
+                  <div>
+                    <p className="font-semibold">{p.title}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      /pay/{p.slug} · {displayAmountMode(p.amount_mode)}{" "}
+                      {!p.is_active ? (
+                        <span className="ml-2 inline-flex items-center rounded-full border border-transparent bg-secondary px-2 py-0.5 text-xs font-medium align-middle">
+                          Inactive
+                        </span>
+                      ) : (
+                        <span className="ml-2 inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-900 align-middle dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-100">
+                          Active
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Link
+                      href={`/pay/${p.slug}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={cn(buttonVariants({ variant: "outline", size: "sm" }), "no-underline")}
+                    >
+                      Open public page
+                    </Link>
+                    <Link
+                      href={`/admin/pages/${p.id}/edit`}
+                      className={cn(buttonVariants({ size: "sm" }), "no-underline")}
+                    >
+                      Edit
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
             </li>
           ))}
         </ul>

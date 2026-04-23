@@ -32,10 +32,10 @@ export default async function EditPaymentPage({ params }: Props) {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-900">Edit: {p.title}</h1>
-        <p className="mt-2 text-sm text-zinc-600">
-          Slug <span className="font-mono text-zinc-800">{p.slug}</span> — inactive pages are hidden
-          from the public but stay editable here.
+        <h1 className="text-2xl font-bold tracking-tight">Edit: {p.title}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Slug <span className="font-mono text-foreground">{p.slug}</span> — inactive pages are
+          hidden from the public but stay editable here.
         </p>
       </div>
 

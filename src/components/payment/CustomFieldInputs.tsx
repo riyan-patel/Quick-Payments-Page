@@ -2,7 +2,9 @@
 
 import type { CustomFieldRow } from "@/types/qpp";
 import { parseOptions } from "@/types/qpp";
-import clsx from "clsx";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 type Props = {
   fields: CustomFieldRow[];
@@ -11,6 +13,13 @@ type Props = {
   errors: Record<string, string>;
   disabled?: boolean;
 };
+
+const selectClassName = cn(
+  "flex h-8 w-full rounded-lg border border-input bg-background px-2.5 py-1 text-sm transition-colors outline-none",
+  "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+  "disabled:cursor-not-allowed disabled:opacity-50",
+  "aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20",
+);
 
 export function CustomFieldInputs({
   fields,
@@ -23,9 +32,7 @@ export function CustomFieldInputs({
 
   return (
     <fieldset className="space-y-4 border-0 p-0">
-      <legend className="text-base font-semibold text-zinc-900 sr-only">
-        Additional information
-      </legend>
+      <legend className="sr-only text-base font-semibold">Additional information</legend>
       {fields.map((f) => {
         const err = errors[f.id];
         const id = `field-${f.id}`;
@@ -35,24 +42,19 @@ export function CustomFieldInputs({
         const opts = parseOptions(f.options);
 
         return (
-          <div key={f.id} className="space-y-1">
-            <label
-              htmlFor={id}
-              className="block text-sm font-medium text-zinc-800"
-            >
+          <div key={f.id} className="space-y-2">
+            <Label htmlFor={id}>
               {f.label}
               {f.required ? (
-                <span className="text-red-700" aria-hidden="true">
+                <span className="text-destructive" aria-hidden="true">
                   {" "}
                   *
                 </span>
               ) : null}
-              {f.required ? (
-                <span className="sr-only"> (required)</span>
-              ) : null}
-            </label>
+              {f.required ? <span className="sr-only"> (required)</span> : null}
+            </Label>
             {f.field_type === "text" && (
-              <input
+              <Input
                 id={id}
                 name={id}
                 type="text"
@@ -63,17 +65,11 @@ export function CustomFieldInputs({
                 onChange={(e) => onChange(f.id, e.target.value)}
                 aria-invalid={err ? true : undefined}
                 aria-describedby={describedBy}
-                className={clsx(
-                  "w-full rounded-lg border px-3 py-2 text-zinc-900 shadow-sm outline-none transition",
-                  "focus-visible:ring-2 focus-visible:ring-offset-2",
-                  err
-                    ? "border-red-600 focus-visible:ring-red-500"
-                    : "border-zinc-300 focus-visible:ring-teal-600",
-                )}
+                className={cn(err && "border-destructive")}
               />
             )}
             {f.field_type === "number" && (
-              <input
+              <Input
                 id={id}
                 name={id}
                 type="number"
@@ -84,17 +80,11 @@ export function CustomFieldInputs({
                 onChange={(e) => onChange(f.id, e.target.value)}
                 aria-invalid={err ? true : undefined}
                 aria-describedby={describedBy}
-                className={clsx(
-                  "w-full rounded-lg border px-3 py-2 text-zinc-900 shadow-sm outline-none transition",
-                  "focus-visible:ring-2 focus-visible:ring-offset-2",
-                  err
-                    ? "border-red-600 focus-visible:ring-red-500"
-                    : "border-zinc-300 focus-visible:ring-teal-600",
-                )}
+                className={cn(err && "border-destructive")}
               />
             )}
             {f.field_type === "date" && (
-              <input
+              <Input
                 id={id}
                 name={id}
                 type="date"
@@ -103,13 +93,7 @@ export function CustomFieldInputs({
                 onChange={(e) => onChange(f.id, e.target.value)}
                 aria-invalid={err ? true : undefined}
                 aria-describedby={describedBy}
-                className={clsx(
-                  "w-full rounded-lg border px-3 py-2 text-zinc-900 shadow-sm outline-none transition",
-                  "focus-visible:ring-2 focus-visible:ring-offset-2",
-                  err
-                    ? "border-red-600 focus-visible:ring-red-500"
-                    : "border-zinc-300 focus-visible:ring-teal-600",
-                )}
+                className={cn(err && "border-destructive")}
               />
             )}
             {f.field_type === "dropdown" && (
@@ -121,13 +105,7 @@ export function CustomFieldInputs({
                 onChange={(e) => onChange(f.id, e.target.value)}
                 aria-invalid={err ? true : undefined}
                 aria-describedby={describedBy}
-                className={clsx(
-                  "w-full rounded-lg border bg-white px-3 py-2 text-zinc-900 shadow-sm outline-none transition",
-                  "focus-visible:ring-2 focus-visible:ring-offset-2",
-                  err
-                    ? "border-red-600 focus-visible:ring-red-500"
-                    : "border-zinc-300 focus-visible:ring-teal-600",
-                )}
+                className={cn(selectClassName, err && "border-destructive")}
               >
                 <option value="">Select…</option>
                 {opts.map((o) => (
@@ -148,20 +126,20 @@ export function CustomFieldInputs({
                   onChange={(e) => onChange(f.id, e.target.checked ? "true" : "false")}
                   aria-invalid={err ? true : undefined}
                   aria-describedby={describedBy}
-                  className="mt-1 size-4 rounded border-zinc-300 text-teal-700 focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2"
+                  className="mt-1 size-4 rounded border-input text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 />
-                <span id={helpId} className="text-sm text-zinc-600">
+                <span id={helpId} className="text-sm text-muted-foreground">
                   {f.helper_text ?? " "}
                 </span>
               </div>
             )}
             {f.helper_text && f.field_type !== "checkbox" ? (
-              <p id={helpId} className="text-xs text-zinc-600">
+              <p id={helpId} className="text-xs text-muted-foreground">
                 {f.helper_text}
               </p>
             ) : null}
             {err ? (
-              <p id={errId} role="alert" className="text-sm text-red-800">
+              <p id={errId} role="alert" className="text-sm text-destructive">
                 {err}
               </p>
             ) : null}

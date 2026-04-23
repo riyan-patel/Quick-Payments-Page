@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -16,36 +19,37 @@ export default async function PaySuccessPage({ params, searchParams }: Props) {
       className="mx-auto max-w-lg px-4 py-16 text-center"
       lang="en"
     >
-      <div
+      <Card
+        className="border-emerald-200 bg-emerald-50 text-emerald-950 shadow-md dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-50"
         role="status"
         aria-live="polite"
-        className="rounded-2xl border border-emerald-200 bg-emerald-50 px-6 py-8"
       >
-        <h1 className="text-xl font-bold text-emerald-950">Payment received</h1>
-        <p className="mt-3 text-emerald-900/90">
-          Thank you. If email confirmation is enabled for this page, check your inbox (and spam)
-          for a receipt.
-        </p>
-        {id ? (
-          <p className="mt-4 text-sm text-emerald-900/80">
-            Reference:{" "}
-            <span className="font-mono" id="txn-ref">
-              {id}
-            </span>
+        <CardContent className="space-y-3 py-8">
+          <h1 className="text-xl font-bold">Payment received</h1>
+          <p className="text-emerald-900/90 dark:text-emerald-100/90">
+            Thank you. If email confirmation is enabled for this page, check your inbox (and spam)
+            for a receipt.
           </p>
-        ) : null}
-        <p className="mt-6 text-sm text-emerald-900/80">
-          Keep this page or your email receipt for your records.
-        </p>
-      </div>
+          {id ? (
+            <p className="text-sm text-emerald-900/80 dark:text-emerald-100/80">
+              Reference:{" "}
+              <span className="font-mono" id="txn-ref">
+                {id}
+              </span>
+            </p>
+          ) : null}
+          <p className="text-sm text-emerald-900/80 dark:text-emerald-100/80">
+            Keep this page or your email receipt for your records.
+          </p>
+        </CardContent>
+      </Card>
       <p className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-        <Link
-          href={payUrl}
-          className="inline-flex rounded-lg bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-900"
-        >
+        <Link href={payUrl} className={cn(buttonVariants({ size: "lg" }), "no-underline")}>
           Return to payment page
         </Link>
-        <span className="text-sm text-zinc-500">Same link you used to pay — for another payment or details.</span>
+        <span className="text-sm text-muted-foreground">
+          Same link you used to pay — for another payment or details.
+        </span>
       </p>
     </main>
   );

@@ -28,8 +28,8 @@ export default async function EmbedPayPage({ params }: Props) {
   const fields = (fieldsRaw ?? []) as CustomFieldRow[];
 
   return (
-    <main className="bg-white p-3 text-zinc-900" lang="en">
-      <div className="mb-3 border-b border-zinc-100 pb-3 text-center">
+    <main className="bg-background p-3 text-foreground" lang="en">
+      <div className="mb-3 border-b border-border pb-3 text-center">
         {p.logo_url ? (
           <img
             src={p.logo_url}

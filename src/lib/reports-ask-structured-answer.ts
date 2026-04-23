@@ -92,6 +92,36 @@ export function buildStructuredNarration(
       }
       return `Succeeded payment total on ${dayStr} (${timeZone}) was ${result.value}.`;
     }
+    if (templateId === "succeeded_revenue_local_datetime_range") {
+      const a = {
+        y: slots.range_start_year!,
+        m: slots.range_start_month!,
+        d: slots.range_start_day!,
+      };
+      const b = {
+        y: slots.range_end_year!,
+        m: slots.range_end_month!,
+        d: slots.range_end_day!,
+      };
+      const startStr = localYmdLabel(a.y, a.m, a.d, timeZone);
+      const endYmd = localYmdLabel(b.y, b.m, b.d, timeZone);
+      if (
+        slots.range_end_local_hour != null &&
+        slots.range_end_local_hour >= 0 &&
+        slots.range_end_local_hour <= 23
+      ) {
+        const endClock = localClockLabel(
+          b.y,
+          b.m,
+          b.d,
+          slots.range_end_local_hour,
+          slots.range_end_local_minute ?? 0,
+          timeZone,
+        );
+        return `Succeeded payment total from local midnight on ${startStr} through before ${endClock} on ${endYmd} (${timeZone}) was ${result.value}.`;
+      }
+      return `Succeeded payment total from local midnight on ${startStr} through the end of ${endYmd} (${timeZone}) was ${result.value}.`;
+    }
     if (templateId === "ytd_revenue" && slots.year) {
       return `Year-to-date succeeded total for ${slots.year} in your local calendar (${timeZone}, through now if that is the current year) is ${result.value}.`;
     }

@@ -99,7 +99,18 @@
     "tableTxId": "Transaction ID",
     "noRows": "No rows match your filters. Adjust filters and click Apply.",
     "noneCode": "(none)",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "askTitle": "Ask a question (AI)",
+    "askPlaceholder": "e.g. How much did I earn in April 2026? Which page brought the most in March?",
+    "askButton": "Ask",
+    "askAria": "Question for AI reports",
+    "askTypeMore": "Type a question of at least a few words.",
+    "askNetworkError": "Network error.",
+    "askRequestFailed": "Request failed",
+    "askNoteAll": "This answer is based on all {count} payment(s) loaded for this report.",
+    "askNoteSample": "This answer is based on the {sent} most recent payments out of {total} in your report (same data as the table below).",
+    "askOpenDb": "Open Supabase → Database",
+    "askDbHint": "for the Connection string (Postgres URI) — not the REST URL."
   },
   "adminEdit": {
     "editTitle": "Edit: {title}",

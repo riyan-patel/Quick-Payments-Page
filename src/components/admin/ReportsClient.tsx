@@ -1,8 +1,19 @@
 "use client";
 
 import { format } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { useTranslations } from "next-intl";
-import { BarChart3, DollarSign, Download, Filter, PiggyBank, RefreshCw, TrendingUp } from "lucide-react";
+import {
+  BarChart3,
+  DollarSign,
+  Download,
+  Filter,
+  MessageCircleQuestion,
+  PiggyBank,
+  RefreshCw,
+  Send,
+  TrendingUp,
+} from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { PaymentPageRow, TransactionRow } from "@/types/qpp";
@@ -34,6 +45,13 @@ export function ReportsClient({
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  const [askQ, setAskQ] = useState("");
+  const [askLoading, setAskLoading] = useState(false);
+  const [askErr, setAskErr] = useState<string | null>(null);
+  const [askAnswer, setAskAnswer] = useState<string | null>(null);
+  const [askNote, setAskNote] = useState<string | null>(null);
+  const [askDbSettingsUrl, setAskDbSettingsUrl] = useState<string | null>(null);
+
   const t = useTranslations("adminReports");
   const tCommon = useTranslations("common");
 
@@ -41,6 +59,11 @@ export function ReportsClient({
   const [to, setTo] = useState(initialTo);
   const [pageId, setPageId] = useState<string>("");
   const [status, setStatus] = useState<string>("");
+
+  const viewerTimeZone = useMemo(
+    () => (typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC"),
+    [],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -152,8 +175,128 @@ export function ReportsClient({
     "focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50",
   );
 
+  const runAsk = async () => {
+    const q = askQ.trim();
+    if (q.length < 3) {
+      setAskErr(t("askTypeMore"));
+      return;
+    }
+    setAskLoading(true);
+    setAskErr(null);
+    setAskAnswer(null);
+    setAskNote(null);
+    setAskDbSettingsUrl(null);
+    try {
+      const r = await fetch("/api/admin/reports/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: q, timeZone: viewerTimeZone }),
+      });
+      const data = (await r.json()) as {
+        answer?: string;
+        error?: string;
+        rowCount?: number;
+        sent?: number;
+        source?: string;
+        databaseSettingsUrl?: string;
+      };
+      if (!r.ok) {
+        setAskErr(typeof data.error === "string" ? data.error : t("askRequestFailed"));
+        if (data.databaseSettingsUrl) setAskDbSettingsUrl(data.databaseSettingsUrl);
+        return;
+      }
+      if (data.answer) setAskAnswer(data.answer);
+      if (data.rowCount != null) {
+        const sent = data.sent ?? data.rowCount;
+        const more = data.rowCount > sent;
+        setAskNote(
+          more
+            ? t("askNoteSample", { sent: sent.toLocaleString(), total: data.rowCount.toLocaleString() })
+            : t("askNoteAll", { count: data.rowCount.toLocaleString() }),
+        );
+      } else {
+        setAskNote(null);
+      }
+    } catch {
+      setAskErr(t("askNetworkError"));
+    } finally {
+      setAskLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center gap-2">
+            <div className="flex size-9 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400">
+              <MessageCircleQuestion className="size-4" strokeWidth={1.5} aria-hidden />
+            </div>
+            <div>
+              <CardTitle className="text-lg">{t("askTitle")}</CardTitle>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+            <Input
+              value={askQ}
+              onChange={(e) => {
+                setAskQ(e.target.value);
+                if (askErr) setAskErr(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void runAsk();
+              }}
+              placeholder={t("askPlaceholder")}
+              className="min-h-10 flex-1 rounded-xl"
+              disabled={askLoading}
+              aria-label={t("askAria")}
+            />
+            <Button
+              type="button"
+              onClick={() => void runAsk()}
+              disabled={askLoading}
+              className="gap-2 rounded-full sm:shrink-0"
+            >
+              {askLoading ? (
+                <RefreshCw className="size-3.5 animate-spin" aria-hidden />
+              ) : (
+                <Send className="size-3.5" aria-hidden />
+              )}
+              {t("askButton")}
+            </Button>
+          </div>
+          {askErr ? (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {askErr}
+                {askDbSettingsUrl ? (
+                  <>
+                    {" "}
+                    <a
+                      className="font-medium text-foreground underline underline-offset-2"
+                      href={askDbSettingsUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {t("askOpenDb")}
+                    </a>{" "}
+                    {t("askDbHint")}
+                  </>
+                ) : null}
+              </AlertDescription>
+            </Alert>
+          ) : null}
+          {askAnswer ? (
+            <div className="space-y-3 rounded-xl border border-foreground/8 bg-muted/25 px-4 py-3 text-sm leading-relaxed">
+              <p className="whitespace-pre-wrap text-foreground">{askAnswer}</p>
+              {askNote ? <p className="text-xs text-muted-foreground">{askNote}</p> : null}
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader className="pb-2">
           <div className="flex items-center gap-2">
@@ -417,7 +560,7 @@ export function ReportsClient({
                     filtered.map((r) => (
                       <tr key={r.id} className="border-b border-border">
                         <td className="py-2 pr-2 whitespace-nowrap text-muted-foreground">
-                          {format(new Date(r.created_at), "PP p")}
+                          {formatInTimeZone(new Date(r.created_at), viewerTimeZone, "PP p")}
                         </td>
                         <td className="py-2 pr-2">{r.payment_pages?.title ?? "—"}</td>
                         <td className="max-w-[12rem] py-2 pr-2 truncate" title={r.payer_name ?? ""}>

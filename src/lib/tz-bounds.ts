@@ -118,6 +118,54 @@ export function localTimeRangeOnLocalDayMs(
   return { startMs: start.getTime(), endExMs: end.getTime() };
 }
 
+/**
+ * Multi-day local window: from start date at 00:00:00 to either (a) 00:00:00
+ * on the day after the end date ("full" end day included), or (b) a local clock
+ * on the end date (exclusive, same semantics as [start, end) elsewhere).
+ * Used for "between Jan 1 and Apr 23 at 2pm" → start Jan 1 local midnight, end
+ * exclusive at Apr 23 14:00 in `tz` (converts to UTC for `created_at` compare).
+ */
+export function localDateTimeRangeWindowMs(
+  tz: string,
+  startYear: number,
+  startMonth: number,
+  startDay: number,
+  endYear: number,
+  endMonth: number,
+  endDay: number,
+  endMode:
+    | "end_of_end_day"
+    | { localHour: number; localMinute: number },
+): { startMs: number; endExMs: number } | null {
+  const startMs = fromZonedTime(
+    new Date(startYear, startMonth - 1, startDay, 0, 0, 0, 0),
+    tz,
+  ).getTime();
+  let endExMs: number;
+  if (endMode === "end_of_end_day") {
+    endExMs = fromZonedTime(
+      new Date(endYear, endMonth - 1, endDay + 1, 0, 0, 0, 0),
+      tz,
+    ).getTime();
+  } else {
+    const { localHour, localMinute } = endMode;
+    endExMs = fromZonedTime(
+      new Date(
+        endYear,
+        endMonth - 1,
+        endDay,
+        localHour,
+        localMinute,
+        0,
+        0,
+      ),
+      tz,
+    ).getTime();
+  }
+  if (endExMs <= startMs) return null;
+  return { startMs, endExMs };
+}
+
 /** Previous full calendar month in the given zone, relative to `instant`. */
 export function localPreviousMonthBoundsMs(
   tz: string,

@@ -99,7 +99,18 @@
     "tableTxId": "ID de transacción",
     "noRows": "Ninguna fila coincide. Ajusta los filtros y pulsa Aplicar.",
     "noneCode": "(ninguno)",
-    "unknown": "Desconocido"
+    "unknown": "Desconocido",
+    "askTitle": "Preguntar a la IA",
+    "askPlaceholder": "p. ej. ¿Cuánto gané en abril de 2026? ¿Qué página facturó más en marzo?",
+    "askButton": "Preguntar",
+    "askAria": "Pregunta para la IA en informes",
+    "askTypeMore": "Escribe una pregunta de al menos unas pocas palabras.",
+    "askNetworkError": "Error de red.",
+    "askRequestFailed": "La solicitud falló",
+    "askNoteAll": "Esta respuesta se basa en los {count} pago(s) cargados de este informe.",
+    "askNoteSample": "Esta respuesta se basa en los {sent} pagos más recientes de {total} en tu informe (mismos datos que la tabla).",
+    "askOpenDb": "Abrir Supabase → Base de datos",
+    "askDbHint": "para la cadena de conexión (URI de Postgres), no la URL REST."
   },
   "adminEdit": {
     "editTitle": "Editar: {title}",

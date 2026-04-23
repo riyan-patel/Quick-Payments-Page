@@ -22,6 +22,14 @@ const outSchema = z.object({
       email_domain_contains: z.string().optional(),
       email_contains: z.string().optional(),
       payer_name_contains: z.string().optional(),
+      range_start_year: z.number().optional(),
+      range_start_month: z.number().min(1).max(12).optional(),
+      range_start_day: z.number().min(1).max(31).optional(),
+      range_end_year: z.number().optional(),
+      range_end_month: z.number().min(1).max(12).optional(),
+      range_end_day: z.number().min(1).max(31).optional(),
+      range_end_local_hour: z.number().min(0).max(23).optional(),
+      range_end_local_minute: z.number().min(0).max(59).optional(),
     })
     .optional(),
 });
@@ -131,6 +139,79 @@ function heuristicFromQuestion(q: string): Partial<ReportAskSlots> {
     t.email_domain_contains = domFromText[1].toLowerCase();
   }
 
+  const br = lower.match(
+    /\bbetween\s+([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s*(20[2-3][0-9]))?\s+and\s+([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s*(20[2-3][0-9]))?/i,
+  );
+  if (br) {
+    const m1 = MONTH_ALIASES[br[1] as keyof typeof MONTH_ALIASES];
+    const m2 = MONTH_ALIASES[br[4] as keyof typeof MONTH_ALIASES];
+    if (m1 && m2) {
+      const explicitY1 = br[3] ? Number(br[3]) : undefined;
+      const explicitY2 = br[6] ? Number(br[6]) : undefined;
+      const yNum = t.year;
+      t.range_start_year = explicitY1 ?? yNum ?? new Date().getFullYear();
+      t.range_start_month = m1;
+      t.range_start_day = Math.min(31, Math.max(1, Number(br[2])));
+      t.range_end_year = explicitY2 ?? explicitY1 ?? yNum ?? t.range_start_year;
+      t.range_end_month = m2;
+      t.range_end_day = Math.min(31, Math.max(1, Number(br[5])));
+    }
+  }
+
+  if (
+    t.range_start_year == null &&
+    t.range_start_month == null &&
+    t.range_start_day == null
+  ) {
+    const fr = lower.match(
+      /\bfrom\s+([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s*(20[2-3][0-9]))?\s+(?:to|through|until)\s+([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s*(20[2-3][0-9]))?/i,
+    );
+    if (fr) {
+      const m1 = MONTH_ALIASES[fr[1] as keyof typeof MONTH_ALIASES];
+      const m2 = MONTH_ALIASES[fr[4] as keyof typeof MONTH_ALIASES];
+      if (m1 && m2) {
+        const explicitY1 = fr[3] ? Number(fr[3]) : undefined;
+        const explicitY2 = fr[6] ? Number(fr[6]) : undefined;
+        const yNum = t.year;
+        t.range_start_year = explicitY1 ?? yNum ?? new Date().getFullYear();
+        t.range_start_month = m1;
+        t.range_start_day = Math.min(31, Math.max(1, Number(fr[2])));
+        t.range_end_year = explicitY2 ?? explicitY1 ?? yNum ?? t.range_start_year;
+        t.range_end_month = m2;
+        t.range_end_day = Math.min(31, Math.max(1, Number(fr[5])));
+      }
+    }
+  }
+
+  if (
+    t.range_start_year != null &&
+    t.range_start_month != null &&
+    t.range_start_day != null &&
+    t.range_end_year != null &&
+    t.range_end_month != null &&
+    t.range_end_day != null
+  ) {
+    const isMulti =
+      t.range_start_year !== t.range_end_year ||
+      t.range_start_month !== t.range_end_month ||
+      t.range_start_day !== t.range_end_day;
+    if (isMulti) {
+      delete t.month;
+      delete t.day;
+      delete t.local_hour_start;
+      delete t.local_minute_start;
+      delete t.local_hour_end;
+      delete t.local_minute_end;
+    }
+  }
+
+  if (t.range_end_day != null && t.range_start_year != null) {
+    if (/\b(?:before\s+)?2\s*p\.?m\.?\b/i.test(lower) || /\b14:00\b/.test(lower)) {
+      t.range_end_local_hour = 14;
+      t.range_end_local_minute = 0;
+    }
+  }
+
   return t;
 }
 
@@ -139,6 +220,40 @@ function mergeSlots(
   b: ReportAskSlots | undefined,
 ): ReportAskSlots {
   return { ...a, ...b };
+}
+
+/** Heuristic filled a true multi-day local range; do not use single-day templates. */
+function isCompleteMultiDayRange(s: ReportAskSlots): boolean {
+  if (
+    s.range_start_year == null ||
+    s.range_start_month == null ||
+    s.range_start_day == null ||
+    s.range_end_year == null ||
+    s.range_end_month == null ||
+    s.range_end_day == null
+  ) {
+    return false;
+  }
+  return (
+    s.range_start_year !== s.range_end_year ||
+    s.range_start_month !== s.range_end_month ||
+    s.range_start_day !== s.range_end_day
+  );
+}
+
+function shouldOverrideToMultiDayRange(
+  templateId: string,
+  s: ReportAskSlots,
+): boolean {
+  if (!isCompleteMultiDayRange(s)) return false;
+  if (
+    templateId === "total_revenue_calendar_day" ||
+    templateId === "purchases_revenue_local_time_range" ||
+    templateId === "total_revenue_today_utc"
+  ) {
+    return true;
+  }
+  return false;
 }
 
 export type ClassifyResult = {
@@ -198,8 +313,9 @@ Rules:
 - "Last month" (previous local calendar month) → prior_month_totals (no required slots; ignore month/year in slots).
 - "Total ever" / "all time" on loaded data → total_revenue_all_loaded.
 - "How many successful payments" (no period) on loaded data → count_succeeded_all_loaded.
-- "How much on April 23 2026" / single calendar day in local time → total_revenue_calendar_day with year, month, day.
-- "Before 1pm" / "before noon" on that day (no start hour) → total_revenue_calendar_day with the same date plus local_hour_end 13 (1pm) or 12 (noon) and local_minute_end 0, and do NOT set local_hour_start. Window is local midnight to that clock time, exclusive.
+- "How much between [date A] and [date B]" in local time, when the two days differ (e.g. Jan 1 and Apr 23) or A is before B on the calendar, OR the user says "earned from January 1 through April 23 (at 2pm)": use succeeded_revenue_local_datetime_range. Set range_start_year, range_start_month, range_start_day (inclusive, local midnight) and range_end_year, range_end_month, range_end_day. If they say 2pm / 2:00 on the *end* day only, set range_end_local_hour 14, range_end_local_minute 0; the window is [start midnight, 14:00 local on end day), i.e. before 2:00 PM. If the end is end-of-day only (no time), omit range_end_local_* so the full local calendar end day is included. Do NOT use total_revenue_calendar_day for a span from one date to a different date—two distinct dates always use succeeded_revenue_local_datetime_range.
+- "How much on April 23 2026" / a single local calendar day with no "between … and …" → total_revenue_calendar_day with year, month, day.
+- "Before 1pm" / "before noon" on that single day (no start hour) → total_revenue_calendar_day with the same date plus local_hour_end 13 (1pm) or 12 (noon) and local_minute_end 0, and do NOT set local_hour_start. Window is local midnight to that clock time, exclusive.
 - "Between 1 and 3pm" / "1-3pm" (a range, not only an end) on a day → purchases_revenue_local_time_range: set local_hour_start 13, local_minute_start 0, local_hour_end 15, local_minute_end 0. Use today in the user time zone if the question says "today" and does not name a date (omit year/month/day). That template returns purchase count and revenue; bounds are [13:00, 15:00) local, converted to UTC for filtering. Prefer this over a free-form answer.
 - "Today" for revenue (so far) → total_revenue_today_utc.
 - "Show failed" / "recent failures" as a list → list_recent_failed.
@@ -247,8 +363,15 @@ ${JSON.stringify(heur)}
     return null;
   }
   const slots = mergeSlots(heur, parsed.slots ?? {}) as ReportAskSlots;
+  let templateId = parsed.templateId;
+  if (shouldOverrideToMultiDayRange(templateId, slots)) {
+    templateId = "succeeded_revenue_local_datetime_range";
+  }
+  if (!ALLOWED.has(templateId)) {
+    return null;
+  }
   return {
-    templateId: parsed.templateId,
+    templateId,
     confidence: Math.min(1, Math.max(0, parsed.confidence ?? 0.7)),
     slots,
   };

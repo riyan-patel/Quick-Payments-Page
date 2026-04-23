@@ -3,6 +3,7 @@ import type { ReportTx } from "@/lib/reports-ask-payload";
 import {
   localCalendarDayWindowMs,
   localDateKey,
+  localDateTimeRangeWindowMs,
   localMonthBoundsMs,
   localPreviousMonthBoundsMs,
   localQuarterBoundsMs,
@@ -41,6 +42,16 @@ export type ReportAskSlots = {
   email_contains?: string;
   /** Substring in payer name (e.g. "John"). */
   payer_name_contains?: string;
+  /** Inclusive start of a multi-day local range (start date at 00:00 in user TZ). */
+  range_start_year?: number;
+  range_start_month?: number;
+  range_start_day?: number;
+  range_end_year?: number;
+  range_end_month?: number;
+  range_end_day?: number;
+  /** On the end date only: exclusive end instant (e.g. 14,0 = before 2:00 PM). If unset, range runs through end of that local calendar day. */
+  range_end_local_hour?: number;
+  range_end_local_minute?: number;
 };
 
 export type SqlPreviewRow =
@@ -766,6 +777,47 @@ LIMIT 1;`;
       },
     };
   },
+  /** Succeeded total from a start local date (inclusive, midnight) through an end local date, optionally with a clock on the end date only. */
+  succeeded_revenue_local_datetime_range: (rows, s, ctx) => {
+    if (
+      s.range_start_year == null ||
+      s.range_start_month == null ||
+      s.range_start_day == null ||
+      s.range_end_year == null ||
+      s.range_end_month == null ||
+      s.range_end_day == null
+    ) {
+      return null;
+    }
+    const tz = ctx.timeZone;
+    const hEnd = s.range_end_local_hour;
+    const mEnd = s.range_end_local_minute ?? 0;
+    const hasEndClock = hEnd != null && hEnd >= 0 && hEnd <= 23;
+    const w = localDateTimeRangeWindowMs(
+      tz,
+      s.range_start_year,
+      s.range_start_month,
+      s.range_start_day,
+      s.range_end_year,
+      s.range_end_month,
+      s.range_end_day,
+      hasEndClock ? { localHour: hEnd!, localMinute: mEnd } : "end_of_end_day",
+    );
+    if (!w) return null;
+    const st = s.status_scope ?? "succeeded";
+    const f = filterRows(rows, w.startMs, w.endExMs, st);
+    const tot = sumAmount(f);
+    const sql = `-- Succeeded total in [${new Date(w.startMs).toISOString()}, ${new Date(w.endExMs).toISOString()}) (${tz} wall → UTC)`;
+    return {
+      sql,
+      result: {
+        kind: "scalar",
+        label: "Succeeded total (local date/time range)",
+        value: fmtMoney(tot),
+        sql,
+      },
+    };
+  },
   payment_methods_revenue_table_month: (rows, s, ctx) => {
     if (s.year == null || s.month == null) return null;
     const { startMs: a, endExMs: b } = localMonthBoundsMs(ctx.timeZone, s.year, s.month);
@@ -1116,6 +1168,7 @@ export const REPORT_ASK_CATALOG: {
   { id: "count_succeeded_all_loaded", title: "Count of succeeded payments in all loaded rows", sqlTemplate: "COUNT succeeded" },
   { id: "total_revenue_calendar_day", title: "Total revenue on one local calendar day (optional end time e.g. before 1pm)", sqlTemplate: "SUM in local TZ window" },
   { id: "purchases_revenue_local_time_range", title: "Count and revenue for a local time-of-day window (e.g. 1-3pm today); walls convert to UTC for DB", sqlTemplate: "COUNT+SUM in [t1,t2) local" },
+  { id: "succeeded_revenue_local_datetime_range", title: "Succeeded total between two local calendar dates (start at midnight) with optional end time on the last day; walls convert to UTC for DB", sqlTemplate: "SUM in [t_start, t_end) local multi-day" },
   { id: "payment_methods_revenue_table_month", title: "Breakdown: revenue and count by payment method in a month", sqlTemplate: "GROUP BY method" },
   { id: "total_revenue_today_utc", title: "Total revenue so far on the current local calendar day", sqlTemplate: "SUM from local midnight to now" },
   { id: "email_domain_succeeded_stats", title: "Count, revenue, % of total for payer emails matching a domain (e.g. gatech.edu)", sqlTemplate: "FILTER email; metrics vs all succeeded in scope" },
